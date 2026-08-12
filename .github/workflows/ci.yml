@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    # Needs a toolchain with Swift 6 language mode (Xcode 16+). The deployment floor stays
+    # macOS 14 via LSMinimumSystemVersion; the runner only has to be able to compile it.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test
+        run: swift test
+
+      - name: Build release app and DMG
+        run: |
+          ./make-app.sh release
+          ./make-dmg.sh
+
+      # Proves the icon and identity actually made it into the bundle, which is the part
+      # most likely to break silently.
+      - name: Verify bundle
+        run: |
+          test -f build/Sweep.app/Contents/Resources/Sweep.icns
+          codesign --verify --deep --strict --verbose=2 build/Sweep.app
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' build/Sweep.app/Contents/Info.plist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sweep-dmg
+          path: build/*.dmg
+
+# Signing and notarization are deliberately absent: they need a Developer ID certificate and
+# App Store Connect credentials that do not exist yet (see docs/DEPLOYMENT.md). A workflow that
+# pretended to sign would be worse than one that does not.

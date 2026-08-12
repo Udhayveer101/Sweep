@@ -3,12 +3,13 @@ import Foundation
 // MARK: - Shared item construction
 
 extension ScanContext {
-    /// Measures a candidate path and runs it through the safety engine.
-    /// Returns nil when the path vanished or the safety engine refuses it outright.
+    /// Measures a candidate path, gathers macOS usage evidence for it, and runs both through
+    /// the safety engine. Returns nil when the path vanished or the engine refuses it outright.
     func makeItem(path: String,
                   category: SweepCategory,
                   displayName: String? = nil,
                   attribution: Attribution? = nil,
+                  owningBundleID: String? = nil,
                   into skipped: inout [SkipRecord]) -> Item? {
         guard FS.exists(path) else {
             skipped.append(SkipRecord(path: path, reason: .vanished))
@@ -22,11 +23,17 @@ extension ScanContext {
         skipped.append(contentsOf: agg.skipped)
         guard agg.bytes > 0 else { return nil }
 
-        let (risk, rationale) = safety.classify(
-            path: path, category: category,
-            modified: agg.newestModification, bytes: agg.bytes,
+        // Reuse the newest modification date the size walk already computed rather than
+        // re-reading it: one traversal, not two.
+        let bundleID = owningBundleID ?? (attribution == .exactBundleID
+            ? (path as NSString).lastPathComponent : nil)
+        let running = bundleID.map { runningApps.bundleIDs.contains($0) } ?? false
+        let evidence = metadata.evidence(for: path, treeModified: agg.newestModification, isRunning: running)
+
+        let verdict = safety.classify(
+            path: path, category: category, evidence: evidence, bytes: agg.bytes,
             attribution: attribution, now: now, runningApps: runningApps)
-        guard risk != .protected else { return nil }
+        guard verdict.risk != .protected else { return nil }
 
         return Item(category: category,
                     path: path,
@@ -34,11 +41,29 @@ extension ScanContext {
                     bytes: agg.bytes,
                     modified: agg.newestModification,
                     fileCount: max(agg.fileCount, 1),
-                    risk: risk,
-                    rationale: rationale,
+                    risk: verdict.risk,
+                    confidence: verdict.confidence,
+                    evidence: evidence,
+                    rationale: verdict.rationale,
                     autoSelected: false,
-                    owningBundleID: attribution == .exactBundleID ? (path as NSString).lastPathComponent : nil,
+                    owningBundleID: bundleID,
                     attribution: attribution)
+    }
+
+    /// Lists a scanner root, recording an unreadable root distinctly from an empty one.
+    func rootChildren(_ path: String, into result: inout CategoryResult) -> [String] {
+        switch FS.children(of: path) {
+        case .success(let entries):
+            return entries
+        case .failure(let skip):
+            // Absent is fine (the folder simply does not exist here); unreadable is not, because
+            // it silently turns into "nothing found".
+            if skip.reason != .vanished && FS.exists(path) {
+                result.unreadableRoots.append(path)
+                result.skipped.append(skip)
+            }
+            return []
+        }
     }
 }
 
@@ -56,23 +81,15 @@ public struct CacheScanner: CleanupScanner {
 
     public func scan(_ ctx: ScanContext) async -> CategoryResult {
         var result = CategoryResult(category: category)
-        let root = ctx.path("Library/Caches")
-        switch FS.children(of: root) {
-        case .failure(let skip):
-            result.skipped.append(skip)
-            return result
-        case .success(let entries):
-            for entry in entries {
-                if Task.isCancelled { return result }
-                let name = (entry as NSString).lastPathComponent
-                if developerOwnedCacheNames.contains(name) { continue }
-                let attribution: Attribution? =
-                    InstalledApps.looksLikeBundleID(name) ? .exactBundleID :
-                    (ctx.installed.names.contains(name.lowercased()) ? .pathConvention : .nameHeuristic)
-                if let item = ctx.makeItem(path: entry, category: category,
-                                           attribution: attribution, into: &result.skipped) {
-                    result.items.append(item)
-                }
+        for entry in ctx.rootChildren(ctx.path("Library/Caches"), into: &result) {
+            if Task.isCancelled { return result }
+            let name = (entry as NSString).lastPathComponent
+            if developerOwnedCacheNames.contains(name) { continue }
+            let match = ctx.installed.attribute(folderName: name)
+            if let item = ctx.makeItem(path: entry, category: category,
+                                       attribution: match.attribution,
+                                       owningBundleID: match.bundleID, into: &result.skipped) {
+                result.items.append(item)
             }
         }
         return result
@@ -87,19 +104,13 @@ public struct LogScanner: CleanupScanner {
 
     public func scan(_ ctx: ScanContext) async -> CategoryResult {
         var result = CategoryResult(category: category)
-        let root = ctx.path("Library/Logs")
-        switch FS.children(of: root) {
-        case .failure(let skip):
-            result.skipped.append(skip)
-        case .success(let entries):
-            for entry in entries {
-                if Task.isCancelled { return result }
-                let name = (entry as NSString).lastPathComponent
-                let attribution: Attribution? = InstalledApps.looksLikeBundleID(name) ? .exactBundleID : .pathConvention
-                if let item = ctx.makeItem(path: entry, category: category,
-                                           attribution: attribution, into: &result.skipped) {
-                    result.items.append(item)
-                }
+        for entry in ctx.rootChildren(ctx.path("Library/Logs"), into: &result) {
+            if Task.isCancelled { return result }
+            let match = ctx.installed.attribute(folderName: (entry as NSString).lastPathComponent)
+            if let item = ctx.makeItem(path: entry, category: category,
+                                       attribution: match.attribution,
+                                       owningBundleID: match.bundleID, into: &result.skipped) {
+                result.items.append(item)
             }
         }
         return result
@@ -114,15 +125,12 @@ public struct TrashScanner: CleanupScanner {
 
     public func scan(_ ctx: ScanContext) async -> CategoryResult {
         var result = CategoryResult(category: category)
-        switch FS.children(of: ctx.path(".Trash")) {
-        case .failure(let skip):
-            result.skipped.append(skip)
-        case .success(let entries):
-            for entry in entries {
-                if Task.isCancelled { return result }
-                if let item = ctx.makeItem(path: entry, category: category, into: &result.skipped) {
-                    result.items.append(item)
-                }
+        // ~/.Trash is TCC-protected: without Full Disk Access this listing fails, and reporting
+        // that as "nothing found" would tell the user their Trash is empty when it is not.
+        for entry in ctx.rootChildren(ctx.path(".Trash"), into: &result) {
+            if Task.isCancelled { return result }
+            if let item = ctx.makeItem(path: entry, category: category, into: &result.skipped) {
+                result.items.append(item)
             }
         }
         return result
@@ -188,16 +196,11 @@ public struct InstallerScanner: CleanupScanner {
     public func scan(_ ctx: ScanContext) async -> CategoryResult {
         var result = CategoryResult(category: category)
         for folder in ["Downloads", "Desktop"] {
-            switch FS.children(of: ctx.path(folder)) {
-            case .failure(let skip):
-                result.skipped.append(skip)
-            case .success(let entries):
-                for entry in entries {
-                    if Task.isCancelled { return result }
-                    guard Self.extensions.contains((entry as NSString).pathExtension.lowercased()) else { continue }
-                    if let item = ctx.makeItem(path: entry, category: category, into: &result.skipped) {
-                        result.items.append(item)
-                    }
+            for entry in ctx.rootChildren(ctx.path(folder), into: &result) {
+                if Task.isCancelled { return result }
+                guard Self.extensions.contains((entry as NSString).pathExtension.lowercased()) else { continue }
+                if let item = ctx.makeItem(path: entry, category: category, into: &result.skipped) {
+                    result.items.append(item)
                 }
             }
         }
@@ -238,18 +241,21 @@ public struct LeftoverScanner: CleanupScanner {
         for root in Self.roots {
             if Task.isCancelled { return result }
             let base = ctx.path(root)
-            guard case .success(let entries) = FS.children(of: base) else {
-                if case .failure(let skip) = FS.children(of: base) { result.skipped.append(skip) }
-                continue
-            }
-            for entry in entries {
+            for entry in ctx.rootChildren(base, into: &result) {
                 if Task.isCancelled { return result }
-                let name = (entry as NSString).lastPathComponent
-                guard !Self.systemPrefixes.contains(where: { name.hasPrefix($0) }) else { continue }
-                guard let attribution = orphanAttribution(name: name, installed: ctx.installed) else { continue }
+                let folderName = (entry as NSString).lastPathComponent
+                // The folder name is a hint, not the answer: a container records the bundle
+                // identifier that actually owns it, which survives renames and UUID-named folders.
+                let declared = ContainerMetadata.owningBundleID(ofContainerAt: entry)
+                let identity = declared ?? folderName
+                guard !Self.systemPrefixes.contains(where: { identity.hasPrefix($0) || folderName.hasPrefix($0) }) else { continue }
+                guard let match = orphanMatch(identity: identity, folderName: folderName,
+                                              declared: declared != nil, installed: ctx.installed)
+                else { continue }
                 if let item = ctx.makeItem(path: entry, category: category,
-                                           displayName: name, attribution: attribution,
-                                           into: &result.skipped) {
+                                           displayName: displayName(folder: folderName, declared: declared),
+                                           attribution: match.attribution,
+                                           owningBundleID: match.bundleID, into: &result.skipped) {
                     result.items.append(item)
                 }
             }
@@ -257,20 +263,46 @@ public struct LeftoverScanner: CleanupScanner {
         return result
     }
 
+    private func displayName(folder: String, declared: String?) -> String {
+        guard let declared, declared != folder else { return folder }
+        return "\(folder) (\(declared))"
+    }
+
     /// Nil when the folder is *not* an orphan (its app is installed, or we cannot tell).
-    func orphanAttribution(name: String, installed: InstalledApps) -> Attribution? {
-        if InstalledApps.looksLikeBundleID(name) {
-            if installed.bundleIDs.contains(name) { return nil }
-            // A bundle ID whose app is absent is the strongest orphan signal available.
-            let lastComponent = name.split(separator: ".").last.map(String.init)?.lowercased()
-            if let lastComponent, installed.names.contains(lastComponent) { return nil }
-            return .exactBundleID
+    func orphanMatch(identity: String, folderName: String, declared: Bool,
+                     installed: InstalledApps) -> (attribution: Attribution, bundleID: String?)? {
+        if InstalledApps.looksLikeBundleID(identity) {
+            if installed.bundleIDs.contains(identity) { return nil }
+            // Versioned or suffixed identifiers: com.vendor.App.helper belongs to com.vendor.App.
+            if installed.bundleIDs.contains(where: { identity.hasPrefix($0 + ".") }) { return nil }
+            // A folder named for an app whose bundle ID we never read (unreadable Info.plist)
+            // but whose name matches an installed app.
+            if let leaf = identity.split(separator: ".").last.map(String.init)?.lowercased(),
+               installed.names.contains(leaf) { return nil }
+            // A container that states its own owner is the strongest signal available.
+            return (declared ? .exactBundleID : .exactBundleID, identity)
         }
-        let lowered = name.lowercased()
+        let lowered = folderName.lowercased()
         if installed.names.contains(lowered) { return nil }
-        // Folder named after an installed app with decoration, e.g. "Foo Helper" for "Foo".
         if installed.names.contains(where: { lowered.hasPrefix($0) || $0.hasPrefix(lowered) }) { return nil }
-        return .nameHeuristic
+        return (.nameHeuristic, nil)
+    }
+}
+
+/// Reads the identifier a sandbox container declares for itself.
+///
+/// A container directory is not reliably named after its owner — it can be renamed, and the
+/// owning app can be renamed independently. `containermanagerd` writes the real bundle
+/// identifier into the container, which is why this beats matching on the folder name.
+public enum ContainerMetadata {
+    static let metadataFile = ".com.apple.containermanagerd.metadata.plist"
+
+    public static func owningBundleID(ofContainerAt path: String) -> String? {
+        let plist = path + "/" + metadataFile
+        guard let data = FileManager.default.contents(atPath: plist),
+              let obj = try? PropertyListSerialization.propertyList(from: data, format: nil),
+              let dict = obj as? [String: Any] else { return nil }
+        return dict["MCMMetadataIdentifier"] as? String
     }
 }
 

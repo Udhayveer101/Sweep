@@ -11,6 +11,8 @@ CONFIG="${1:-release}"
 cd "$(dirname "$0")"
 
 swift build -c "$CONFIG"
+# Regenerate the icon from SweepMark so the shipped asset can never drift from the source.
+swift run -c "$CONFIG" MakeIcon Resources >/dev/null
 BIN="$(swift build -c "$CONFIG" --show-bin-path)/SweepApp"
 APP="build/Sweep.app"
 
@@ -18,6 +20,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Sweep"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp Resources/Sweep.icns "$APP/Contents/Resources/Sweep.icns"
 
 # Ad-hoc signature: enough to run locally and to keep a stable bundle identity.
 # Distribution needs a Developer ID certificate and notarization — see docs/DEPLOYMENT.md.

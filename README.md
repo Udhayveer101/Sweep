@@ -15,6 +15,10 @@ existing tool and contains no third-party proprietary code, algorithms, assets, 
   you. A match by name alone is never enough to pre-select a deletion.
 - **Trash first, with a real way back.** Nothing is deleted permanently unless you opt in.
   After a cleanup, one button puts everything back, and it stays available.
+- **It never confuses "empty" with "blocked".** A folder macOS refuses to let Sweep read is
+  reported as unreadable, never as empty.
+- **It knows the difference between changed and used.** Sweep reads the open-record macOS keeps
+  (LaunchServices), and treats a missing record as *unknown*, never as "never used".
 - **It tells you what it could not do.** Skipped and failed items are listed individually with
   a specific reason, and the headline "freed" number is what verification confirmed is gone —
   not what was attempted.
@@ -24,15 +28,31 @@ existing tool and contains no third-party proprietary code, algorithms, assets, 
 
 ## Requirements
 
-macOS 14 or later. Apple Silicon or Intel.
+macOS 14 or later. Apple Silicon or Intel. No runtime dependencies — Sweep links only against
+system frameworks and has no networking code.
 
-## Build and run
+Permissions: Sweep may ask for Desktop, Documents, and Downloads access. Full Disk Access is
+optional and only widens what macOS lets it see.
+
+## Install
+
+Download `Sweep-1.0.dmg` from [Releases](https://github.com/Udhayveer101/Sweep/releases), open
+it, and drag Sweep to Applications.
+
+**The first launch needs one extra step.** Sweep is ad-hoc signed, not signed with an Apple
+Developer ID, so Gatekeeper blocks it once: open **System Settings → Privacy & Security** and
+click **Open Anyway**. Full walkthrough, permissions, and troubleshooting are in
+[`docs/INSTALL.md`](docs/INSTALL.md).
+
+## Build from source
 
 ```bash
-./make-app.sh release
+./make-app.sh release      # build/Sweep.app
+./make-dmg.sh              # build/Sweep-<version>.dmg
 ```
 
-That produces `build/Sweep.app`. Open it with `open build/Sweep.app`.
+`make-app.sh` regenerates the icon from its source drawing on every build, so the shipped asset
+cannot drift from the code that defines it.
 
 For development:
 
@@ -40,6 +60,16 @@ For development:
 swift build
 swift test
 ```
+
+## Testing
+
+```bash
+swift test                                   # 83 tests, 13 suites
+SWEEP_PERF=1 swift test --filter Performance # opt-in, runs against your real home folder
+```
+
+The suites cover filesystem traversal, each scanner, the safety engine's refusal rules, the
+cleanup executor and its restore path, storage accounting, and the orchestrator.
 
 Performance measurements run against your real home folder and are opt-in:
 
@@ -69,8 +99,54 @@ need.
 Optional. Without it macOS hides some caches and logs from Sweep, so scans find less — the app
 detects this, says so plainly, and works anyway. Sweep never demands it and never nags.
 
+## Safety model
+
+Every finding lands in one of four buckets, and the bucket decides what Sweep is allowed to do:
+
+| Verdict | Meaning | Pre-selected? |
+|---|---|---|
+| **Safe to delete** | Regenerable data, matched by a rule with corroborating evidence — age, size, and the owning app not running | Yes |
+| **Your call** | Real but plausibly wanted: your screenshots, large unopened files | No — listed only |
+| **Protected** | Never eligible, and the list cannot be overridden, including by you | Never |
+| **Unknown** | Sweep could not gather enough evidence to judge | Never |
+
+The safety engine is consulted twice: once at scan time, and again for every item immediately
+before it is touched, because scan results are stale by the time they are acted on. Deletions
+go to the Trash and stay restorable. See [`docs/SECURITY.md`](docs/SECURITY.md).
+
+## Architecture
+
+`SweepCore` is a plain Swift library with no UI dependency; `SweepApp` is a SwiftUI shell over
+it. Inside Core: **Scanners** produce candidates, **Safety** classifies and gates them,
+**Execute** performs and verifies the cleanup with a restore log, **Store** handles storage
+accounting and usage evidence, **Brand** holds the vector icon definition. Full breakdown in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+## Release
+
+Bump `CFBundleShortVersionString`/`CFBundleVersion` in `Resources/Info.plist`, then
+`./make-app.sh release && ./make-dmg.sh`, tag `vX.Y.Z`, and attach the DMG to a GitHub release.
+Signing and notarization steps — and exactly which of them are currently blocked — are in
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+## Security
+
+To report a security issue, open a GitHub issue if it is not sensitive, or use GitHub's private
+vulnerability reporting on this repository if it is. The threat model, the guarantees the
+safety engine enforces, and the accepted limitations are documented in
+[`docs/SECURITY.md`](docs/SECURITY.md).
+
 ## Documentation
 
-- `docs/ARCHITECTURE.md` — the pipeline, module boundaries, and why each decision was made
-- `docs/SECURITY.md` — threat model, safety guarantees, and the adversarial review
-- `docs/DEPLOYMENT.md` — signing, notarization, and what genuinely cannot be finished locally
+- [`docs/INSTALL.md`](docs/INSTALL.md) — installing, permissions, uninstalling, troubleshooting
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — the pipeline, module boundaries, and why each decision was made
+- [`docs/SECURITY.md`](docs/SECURITY.md) — threat model, safety guarantees, and the adversarial review
+- [`docs/STORAGE.md`](docs/STORAGE.md) — storage accounting, why Apple's numbers differ, and the usage-evidence model
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — signing, notarization, and what genuinely cannot be finished locally
+
+## License
+
+No license has been chosen for this project, so default copyright applies: all rights reserved.
+The source is public to read, but there is no grant to reuse or redistribute it. Adding a
+license is a decision for the author, not something to assume.
+

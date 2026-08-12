@@ -18,9 +18,10 @@ struct PerformanceTests {
             let start = Date()
             let result = await scanner.scan(ctx)
             let elapsed = Date().timeIntervalSince(start)
-            print(String(format: "%-22@ %6.2fs  %5d items  %@",
+            let blocked = result.wasBlocked ? "  BLOCKED: \(result.unreadableRoots.joined(separator: ", "))" : ""
+            print(String(format: "%-22@ %6.2fs  %5d items  %@%@",
                          scanner.category.rawValue as NSString, elapsed,
-                         result.items.count, Format.bytes(result.totalBytes)))
+                         result.items.count, Format.bytes(result.totalBytes), blocked as NSString))
         }
     }
 

@@ -7,10 +7,16 @@ let package = Package(
     products: [
         .library(name: "SweepCore", targets: ["SweepCore"]),
         .executable(name: "SweepApp", targets: ["SweepApp"]),
+        .executable(name: "MakeIcon", targets: ["MakeIcon"]),
     ],
     targets: [
         .target(
             name: "SweepCore",
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .executableTarget(
+            name: "MakeIcon",
+            dependencies: ["SweepCore"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .executableTarget(

@@ -98,6 +98,10 @@ public struct Item: Codable, Sendable, Identifiable, Hashable {
     /// Number of files the item covers (1 for a plain file).
     public let fileCount: Int
     public let risk: Risk
+    /// How well-evidenced the verdict is. `.safe` always implies at least `.medium`.
+    public let confidence: Confidence
+    /// Everything macOS could tell us about whether this is actually used.
+    public let evidence: UsageEvidence?
     public let rationale: [Rationale]
     /// True when the recommendation engine pre-selected this for the user.
     public let autoSelected: Bool
@@ -115,6 +119,8 @@ public struct Item: Codable, Sendable, Identifiable, Hashable {
         modified: Date,
         fileCount: Int = 1,
         risk: Risk,
+        confidence: Confidence = .medium,
+        evidence: UsageEvidence? = nil,
         rationale: [Rationale],
         autoSelected: Bool = false,
         owningBundleID: String? = nil,
@@ -128,6 +134,8 @@ public struct Item: Codable, Sendable, Identifiable, Hashable {
         self.modified = modified
         self.fileCount = fileCount
         self.risk = risk
+        self.confidence = confidence
+        self.evidence = evidence
         self.rationale = rationale
         self.autoSelected = autoSelected
         self.owningBundleID = owningBundleID
@@ -136,7 +144,8 @@ public struct Item: Codable, Sendable, Identifiable, Hashable {
 
     public func with(risk: Risk, rationale: [Rationale], autoSelected: Bool) -> Item {
         Item(id: id, category: category, path: path, displayName: displayName, bytes: bytes,
-             modified: modified, fileCount: fileCount, risk: risk, rationale: rationale,
+             modified: modified, fileCount: fileCount, risk: risk, confidence: confidence,
+             evidence: evidence, rationale: rationale,
              autoSelected: autoSelected, owningBundleID: owningBundleID, attribution: attribution)
     }
 }
@@ -166,13 +175,26 @@ public struct CategoryResult: Sendable, Identifiable {
     /// Locations skipped and why — permission denials, vanished paths, unreadable directories.
     public var skipped: [SkipRecord]
     public var failure: ScanFailure?
+    /// Top-level locations this category owns that could not be opened at all.
+    ///
+    /// Kept separate from `skipped` because it changes what an empty result *means*: with an
+    /// unreadable root, "no items" means "Sweep could not look", which must never be shown to
+    /// the user as "nothing found".
+    public var unreadableRoots: [String]
 
-    public init(category: SweepCategory, items: [Item] = [], skipped: [SkipRecord] = [], failure: ScanFailure? = nil) {
+    public init(category: SweepCategory, items: [Item] = [], skipped: [SkipRecord] = [],
+                failure: ScanFailure? = nil, unreadableRoots: [String] = []) {
         self.category = category
         self.items = items
         self.skipped = skipped
         self.failure = failure
+        self.unreadableRoots = unreadableRoots
     }
+
+    /// True when Sweep genuinely looked and there was nothing there — as opposed to being
+    /// unable to look.
+    public var isTrulyEmpty: Bool { items.isEmpty && unreadableRoots.isEmpty && failure == nil }
+    public var wasBlocked: Bool { !unreadableRoots.isEmpty }
 
     public var totalBytes: Int64 { items.reduce(0) { $0 + $1.bytes } }
     public var selectedBytes: Int64 { items.filter(\.autoSelected).reduce(0) { $0 + $1.bytes } }

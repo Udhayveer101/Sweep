@@ -64,7 +64,8 @@ public actor ScanOrchestrator {
         let ordered = Self.deduplicate(scanners.compactMap { results[$0.category] })
         let recommended = RecommendationEngine().apply(to: ordered)
         let limited = recommended.contains { r in
-            r.skipped.contains { $0.reason == .permissionDenied || $0.reason == .notPermittedNeedsFullDiskAccess }
+            !r.unreadableRoots.isEmpty
+                || r.skipped.contains { $0.reason == .permissionDenied || $0.reason == .notPermittedNeedsFullDiskAccess }
         }
         return ScanReport(categories: recommended, started: started, finished: Date(),
                           cancelled: cancelled, limitedByPermissions: limited)
@@ -111,8 +112,12 @@ public struct RecommendationEngine: Sendable {
     }
 
     /// Neutral, factual one-liner for a category. No exclamation marks, no "your Mac is slow".
+    ///
+    /// Distinguishes "looked and found nothing" from "could not look", because conflating them
+    /// tells the user their Trash is empty when macOS is simply refusing Sweep access to it.
     public func summary(for category: CategoryResult) -> String {
         let selected = category.items.filter(\.autoSelected)
+        if category.wasBlocked && category.items.isEmpty { return "Could not be read — needs permission." }
         if category.items.isEmpty { return "Nothing found." }
         if selected.isEmpty {
             return "\(category.items.count) item(s), \(Format.bytes(category.totalBytes)). None selected — review them yourself."

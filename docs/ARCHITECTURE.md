@@ -70,6 +70,18 @@ explicitly demoted rather than blended into an opaque score.
 Every category has an age threshold used solely to decide what arrives pre-checked. Age never
 grants permission to delete; eligibility does.
 
+### Risk and confidence are two axes, not one
+`Risk` is about consequences (`safe`/`review`/`unknown`/`protected`). `Confidence` is about
+evidence quality (`high`/`medium`/`low`/`none`). Two invariants are enforced centrally so no
+category can forget them: `.safe` requires at least `.medium` confidence, and an item whose
+owning application is running is never `.safe`. See `docs/STORAGE.md` for the evidence model.
+
+### "Could not look" is never rendered as "nothing there"
+`CategoryResult` tracks `unreadableRoots` separately from an empty item list, because a
+TCC-blocked folder and an empty folder are indistinguishable at the API level and must not be
+indistinguishable in the UI. This fixed a real bug: with the Trash protected, Sweep showed
+"Nothing found / Zero KB" while macOS reported 5.36 GB in it.
+
 ### Bounded concurrency, measured rather than assumed
 The orchestrator caps concurrent scanners at 4. Measured on an M1, macOS 26.5.1, warm cache:
 

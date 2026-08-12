@@ -9,13 +9,16 @@ public struct ScanContext: Sendable {
     public let installed: InstalledApps
     public let now: Date
     public let limits: FS.WalkLimits
+    /// Reads macOS usage metadata. Injected so tests can construct contexts without Spotlight.
+    public let metadata: MetadataReader
 
     public init(home: String = NSHomeDirectory(),
                 safety: SafetyEngine? = nil,
                 runningApps: RunningApps = .none,
                 installed: InstalledApps = InstalledApps(bundleIDs: [], names: []),
                 now: Date = Date(),
-                limits: FS.WalkLimits = .default) {
+                limits: FS.WalkLimits = .default,
+                metadata: MetadataReader = MetadataReader()) {
         let h = FS.normalize(home)
         self.home = h
         self.safety = safety ?? SafetyEngine(home: h)
@@ -23,6 +26,7 @@ public struct ScanContext: Sendable {
         self.installed = installed
         self.now = now
         self.limits = limits
+        self.metadata = metadata
     }
 
     func path(_ relative: String) -> String { home + "/" + relative }
@@ -72,6 +76,22 @@ public struct InstalledApps: Sendable, Hashable {
               let obj = try? PropertyListSerialization.propertyList(from: data, format: nil),
               let dict = obj as? [String: Any] else { return nil }
         return dict["CFBundleIdentifier"] as? String
+    }
+
+    /// Attributes a support-folder name to an application, returning both the confidence tier
+    /// and the bundle identifier when one can be established.
+    ///
+    /// Ordering matters: an exact bundle identifier beats a folder-layout convention, which
+    /// beats a name resemblance. Anything weaker than an exact identifier is reported but can
+    /// never pre-select a deletion.
+    public func attribute(folderName name: String) -> (attribution: Attribution, bundleID: String?) {
+        if InstalledApps.looksLikeBundleID(name) {
+            return (.exactBundleID, name)
+        }
+        if names.contains(name.lowercased()) {
+            return (.pathConvention, nil)
+        }
+        return (.nameHeuristic, nil)
     }
 
     /// True when a folder name looks like a reverse-DNS bundle identifier.

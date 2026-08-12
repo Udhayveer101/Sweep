@@ -28,6 +28,11 @@ final class AppModel {
     var settings = Settings.load(from: Settings.defaultURL)
     var fullDiskAccess: FullDiskAccess.Status = .indeterminate
     var history: [CleanupReport] = []
+    var storage: StorageOverview?
+    /// Set when the volume figures could not be read at all, so the UI can say so rather than
+    /// silently showing nothing.
+    var storageError: String?
+    var showingCoverage = false
     var undoSecondsRemaining: Int = 0
     var undoResult: Restorer.Result?
 
@@ -36,6 +41,7 @@ final class AppModel {
     private var scanTask: Task<Void, Never>?
     private var cleanupTask: Task<Void, Never>?
     private var undoTask: Task<Void, Never>?
+    private var storageObservers: [any NSObjectProtocol] = []
 
     // MARK: - Derived
 
@@ -57,7 +63,56 @@ final class AppModel {
 
     func load() async {
         fullDiskAccess = FullDiskAccess.status()
+        refreshStorage()
+        observeStorageChanges()
         history = await historyStore.all()
+    }
+
+    /// Re-reads the volume figures from the system.
+    ///
+    /// Called on every event that could have changed them rather than on a timer: a read costs
+    /// about 0.002 ms, so polling would be pure waste and caching would only create a way for
+    /// the display to be wrong. Touches nothing but `storage`, so unrelated state — a scan
+    /// report, the user's selection — is never disturbed by a refresh.
+    func refreshStorage() {
+        if let fresh = StorageOverview.read() {
+            storage = fresh
+            storageError = nil
+        } else {
+            // Keep no stale figure on screen: an unreadable volume shows an explanation instead.
+            storage = nil
+            storageError = "macOS did not report capacity for this volume."
+        }
+    }
+
+    /// Registers the lifecycle events that invalidate the figures. Idempotent.
+    private func observeStorageChanges() {
+        guard storageObservers.isEmpty else { return }
+        let center = NotificationCenter.default
+        let workspace = NSWorkspace.shared.notificationCenter
+        // Returning to the app after using Finder, another cleaner, or a big download.
+        storageObservers.append(center.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshStorage() }
+            })
+        // Waking from sleep — arbitrary time may have passed.
+        storageObservers.append(workspace.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.refreshStorage() }
+            })
+        // A mounted or ejected volume changes what the home volume reports.
+        for name in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification] {
+            storageObservers.append(workspace.addObserver(
+                forName: name, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.refreshStorage() }
+                })
+        }
+    }
+
+    /// Categories whose locations macOS refused to let Sweep read. Surfaced prominently
+    /// because an unreadable location silently looks identical to an empty one.
+    var blockedCategories: [CategoryResult] {
+        (report?.categories ?? []).filter(\.wasBlocked)
     }
 
     // MARK: - Scanning
@@ -178,6 +233,7 @@ final class AppModel {
                 self.cleanupReport = report
                 self.history = all
                 self.cleanupProgress = nil
+                self.refreshStorage()
                 self.phase = .done
                 if report.recoverable { self.startUndoWindow() }
             }
@@ -216,6 +272,7 @@ final class AppModel {
         undoSecondsRemaining = 0
         let result = Restorer().restore(report)
         undoResult = result
+        refreshStorage()
     }
 
     func dismissUndo() {

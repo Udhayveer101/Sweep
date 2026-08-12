@@ -93,76 +93,83 @@ struct EligibilityTests {
 struct ClassificationTests {
     let now = Date()
 
+    /// Evidence with only a modification date — the common case for app-written data.
+    func ev(_ offset: TimeInterval, lastUsed: Date? = nil, running: Bool = false,
+            metadataUnavailable: Bool = false) -> UsageEvidence {
+        UsageEvidence(lastUsed: lastUsed, modified: now.addingTimeInterval(offset),
+                      isRunning: running, metadataUnavailable: metadataUnavailable)
+    }
+
     @Test("Old, large, regenerable cache is safe")
     func safeCache() {
         let f = Fixture()
-        let (risk, rationale) = f.engine.classify(
+        let v = f.engine.classify(
             path: f.root + "/Library/Caches/com.example.dead", category: .userCaches,
-            modified: now.addingTimeInterval(-60 * days), bytes: 50_000_000,
+            evidence: ev(-60 * days), bytes: 50_000_000,
             attribution: .exactBundleID, now: now)
-        #expect(risk == .safe)
-        #expect(!rationale.isEmpty)
+        #expect(v.risk == .safe)
+        #expect(!v.rationale.isEmpty)
     }
 
     @Test("Recently written cache is shown but never auto-selected")
     func recentCache() {
         let f = Fixture()
-        let (risk, _) = f.engine.classify(
+        let v = f.engine.classify(
             path: f.root + "/Library/Caches/com.example.dead", category: .userCaches,
-            modified: now.addingTimeInterval(-2 * days), bytes: 50_000_000,
+            evidence: ev(-2 * days), bytes: 50_000_000,
             attribution: .exactBundleID, now: now)
-        #expect(risk == .review)
+        #expect(v.risk == .review)
     }
 
     @Test("Small items are not worth pre-selecting")
     func tinyItem() {
         let f = Fixture()
-        let (risk, _) = f.engine.classify(
+        let v = f.engine.classify(
             path: f.root + "/Library/Caches/tiny", category: .userCaches,
-            modified: now.addingTimeInterval(-300 * days), bytes: 1_000,
+            evidence: ev(-300 * days), bytes: 1_000,
             attribution: .exactBundleID, now: now)
-        #expect(risk == .review)
+        #expect(v.risk == .review)
     }
 
     @Test("User-authored categories are never safe, no matter how old")
     func userFilesNeverAutoSelected() {
         let f = Fixture()
         for category in [SweepCategory.largeOldFiles, .screenRecordings] {
-            let (risk, _) = f.engine.classify(
+            let v = f.engine.classify(
                 path: f.root + "/Documents/thesis.mov", category: category,
-                modified: now.addingTimeInterval(-3650 * days), bytes: 5_000_000_000,
+                evidence: ev(-3650 * days), bytes: 5_000_000_000,
                 attribution: nil, now: now)
-            #expect(risk == .review, "\(category) must never be auto-selectable")
+            #expect(v.risk == .review, "\(category) must never be auto-selectable")
         }
     }
 
     @Test("A leftover matched only by name is never auto-selected")
     func nameHeuristicIsNeverSafe() {
         let f = Fixture()
-        let (risk, _) = f.engine.classify(
+        let v = f.engine.classify(
             path: f.root + "/Library/Application Support/Something", category: .appLeftovers,
-            modified: now.addingTimeInterval(-999 * days), bytes: 500_000_000,
+            evidence: ev(-999 * days), bytes: 500_000_000,
             attribution: .nameHeuristic, now: now)
-        #expect(risk == .review)
+        #expect(v.risk == .review)
     }
 
     @Test("An unattributable leftover is classified unknown, and unknown is never deleted")
     func unknownStaysUnknown() {
         let f = Fixture()
-        let (risk, _) = f.engine.classify(
+        let v = f.engine.classify(
             path: f.root + "/Library/Application Support/Mystery", category: .appLeftovers,
-            modified: now.addingTimeInterval(-999 * days), bytes: 500_000_000,
+            evidence: ev(-999 * days), bytes: 500_000_000,
             attribution: nil, now: now)
-        #expect(risk == .unknown)
+        #expect(v.risk == .unknown)
     }
 
     @Test("Protected paths classify as protected regardless of category or age")
     func protectedBeatsEverything() {
         let f = Fixture()
-        let (risk, _) = f.engine.classify(
+        let v = f.engine.classify(
             path: f.root + "/Library/Keychains/login.keychain-db", category: .userCaches,
-            modified: now.addingTimeInterval(-9999 * days), bytes: 900_000_000,
+            evidence: ev(-9999 * days), bytes: 900_000_000,
             attribution: .exactBundleID, now: now)
-        #expect(risk == .protected)
+        #expect(v.risk == .protected)
     }
 }

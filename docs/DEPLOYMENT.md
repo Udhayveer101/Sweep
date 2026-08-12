@@ -4,10 +4,19 @@
 
 ```bash
 ./make-app.sh release      # produces build/Sweep.app, ad-hoc signed
+./make-dmg.sh              # produces build/Sweep-<version>.dmg and prints its SHA-256
 ```
 
 The bundle identifier is `com.sweep.app` and the signature is applied with a fixed identifier so
 the identity stays stable between local rebuilds.
+
+## Versioning
+
+One source of truth: `CFBundleShortVersionString` (marketing) and `CFBundleVersion` (build) in
+`Resources/Info.plist`. `make-dmg.sh` reads the marketing version out of the built bundle, so
+the artifact name follows automatically — `Sweep-1.0.dmg`. The Git tag is `v` plus the same
+marketing version (`v1.0.0` for the 1.0 release), and the GitHub release is named `Sweep 1.0`.
+Bump the plist, rebuild, tag; nothing else carries a version number.
 
 ## What genuinely cannot be completed here
 
@@ -16,7 +25,14 @@ done.
 
 ### 1. Developer ID signing — blocked on an Apple Developer account
 The app is currently **ad-hoc signed**. Distribution to any other Mac requires a Developer ID
-Application certificate.
+Application certificate. The only identity available on the build machine is an *Apple
+Development* certificate (`security find-identity -v -p codesigning`), which cannot be used for
+distribution or notarization.
+
+**Measured consequence**, not a prediction: a copy of the shipped `.app` was given the download
+quarantine flag and assessed with `spctl -a -t exec`, which returned `rejected`. Every user
+downloading the DMG therefore hits the Gatekeeper prompt once, and must use **Open Anyway** or
+strip the quarantine attribute. `docs/INSTALL.md` walks them through it.
 
 Exact action required: enrol in the Apple Developer Program, install the certificate, then
 
@@ -59,7 +75,17 @@ Developer ID signature makes grants persist across updates.
 ## Verification before release
 
 ```bash
-swift test                                   # 57 tests
+swift test                                   # 83 tests across 13 suites
 SWEEP_PERF=1 swift test --filter Performance # timings on the target machine
-./make-app.sh release && open build/Sweep.app
+./make-app.sh release && ./make-dmg.sh
+```
+
+Then install the artifact the way a user would, rather than testing the development build:
+
+```bash
+hdiutil attach build/Sweep-1.0.dmg -nobrowse
+cp -R /Volumes/Sweep/Sweep.app /Applications/
+hdiutil detach /Volumes/Sweep
+codesign --verify --deep --strict /Applications/Sweep.app
+open /Applications/Sweep.app
 ```

@@ -9,10 +9,7 @@ struct HomeView: View {
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
-            Image(systemName: "sparkles")
-                .font(.system(size: 44, weight: .light))
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
+            BrandMark(size: 88)
 
             VStack(spacing: 8) {
                 Text("Sweep")
@@ -30,6 +27,8 @@ struct HomeView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .keyboardShortcut(.defaultAction)
+
+            StoragePanel()
 
             if model.fullDiskAccess == .denied {
                 PermissionBanner()
@@ -263,7 +262,8 @@ struct CategoryRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Text(Format.bytes(result.totalBytes))
+            // A blocked category has no honest number to show, so it shows none.
+            Text(result.wasBlocked && result.items.isEmpty ? "—" : Format.bytes(result.totalBytes))
                 .font(.callout.monospacedDigit())
                 .foregroundStyle(result.items.isEmpty ? .tertiary : .secondary)
         }
@@ -289,6 +289,7 @@ struct CategoryRow: View {
 
     private var subtitle: String {
         if result.failure != nil { return "Could not be scanned" }
+        if result.wasBlocked && result.items.isEmpty { return "Blocked by macOS" }
         if result.items.isEmpty { return "Nothing found" }
         let selected = result.items.filter { model.selection.contains($0.id) }.count
         return "\(selected) of \(result.items.count) selected"
@@ -322,8 +323,12 @@ struct ItemList: View {
             Divider()
 
             if model.items(in: category).isEmpty {
-                ContentUnavailableView("Nothing found here", systemImage: "tray",
-                                       description: Text("Sweep checked this category and found nothing."))
+                if result?.wasBlocked == true {
+                    BlockedRootNotice(roots: result?.unreadableRoots ?? [])
+                } else {
+                    ContentUnavailableView("Nothing found here", systemImage: "tray",
+                                           description: Text("Sweep checked this category and found nothing."))
+                }
             } else {
                 List {
                     ForEach(model.items(in: category)) { item in
@@ -397,6 +402,7 @@ struct ItemRow: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
+                ConfidenceBadge(confidence: item.confidence)
                 RiskBadge(risk: item.risk)
                 Text(Format.bytes(item.bytes))
                     .font(.callout.monospacedDigit())
@@ -759,5 +765,230 @@ struct HistoryView: View {
             }
         }
         .padding()
+    }
+}
+
+// MARK: - Blocked locations
+
+/// Shown where a category would otherwise render as "nothing found". macOS refusing to let
+/// Sweep read a folder must never be presented as that folder being empty.
+struct BlockedRootNotice: View {
+    @Environment(AppModel.self) private var model
+    let roots: [String]
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "lock.circle")
+                .font(.system(size: 38, weight: .light))
+                .foregroundStyle(.orange)
+            Text("Sweep could not look here").font(.title3)
+            Text("macOS blocked access to \(roots.count == 1 ? "this location" : "these locations"). "
+                 + "This is not the same as the location being empty — Sweep does not know what is inside.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(roots, id: \.self) { root in
+                    Text(root)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1).truncationMode(.middle)
+                }
+            }
+            Button("Open Privacy & Security…") { model.openFullDiskAccessSettings() }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+}
+
+// MARK: - Confidence
+
+struct ConfidenceBadge: View {
+    let confidence: Confidence
+
+    var body: some View {
+        Label(label, systemImage: symbol)
+            .font(.caption2)
+            .foregroundStyle(color)
+            .labelStyle(.titleAndIcon)
+            .help(explanation)
+            .accessibilityLabel("Evidence: \(label). \(explanation)")
+    }
+
+    private var label: String {
+        switch confidence {
+        case .high: "Strong evidence"
+        case .medium: "Good evidence"
+        case .low: "Weak evidence"
+        case .none: "No evidence"
+        }
+    }
+
+    private var symbol: String {
+        switch confidence {
+        case .high: "checkmark.seal"
+        case .medium: "info.circle"
+        case .low: "questionmark.circle"
+        case .none: "exclamationmark.triangle"
+        }
+    }
+
+    private var color: Color {
+        switch confidence {
+        case .high: .green
+        case .medium: .secondary
+        case .low: .orange
+        case .none: .red
+        }
+    }
+
+    private var explanation: String {
+        switch confidence {
+        case .high: "macOS records this being opened, or its app is running right now."
+        case .medium: "No open-record, but this is app-written data whose write time is a sound signal."
+        case .low: "Only timestamps that do not establish whether it is used."
+        case .none: "Sweep could not gather usable evidence, so it will not act on this."
+        }
+    }
+}
+
+// MARK: - Storage overview
+
+/// Presents the volume's current figures on the same basis System Settings uses.
+///
+/// Refreshed every time this view appears, plus on app activation, wake, and volume
+/// mount/unmount (see `AppModel.refreshStorage`). A read costs ~0.002 ms, so the figures are
+/// simply always current — there is no cache to go stale and no loading state to show.
+struct StoragePanel: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var model = model
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("This Mac").font(.headline)
+                Spacer()
+                Button("What Sweep covers…") { model.showingCoverage = true }
+                    .buttonStyle(.link)
+                    .font(.callout)
+            }
+
+            if let storage = model.storage {
+                HStack(spacing: 18) {
+                    figure("Capacity", storage.totalCapacity)
+                    figure("Used", storage.usedCapacity)
+                    figure("Free", storage.freeCapacity)
+                }
+                if storage.reclaimableByMacOS > 0 {
+                    Text("Free space includes \(Format.bytes(storage.reclaimableByMacOS)) macOS can reclaim by itself — caches, local snapshots and files already stored in iCloud. Counting it as free is what System Settings does too.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text("Read from this volume \(storage.measuredAt.formatted(date: .omitted, time: .standard)).")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityLabel("Figures read at \(storage.measuredAt.formatted(date: .omitted, time: .standard))")
+            } else {
+                Label(model.storageError ?? "Storage information is unavailable.",
+                      systemImage: "exclamationmark.triangle")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: 560, alignment: .leading)
+        .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
+        // Every appearance of this panel re-reads the system figures.
+        .onAppear { model.refreshStorage() }
+        .sheet(isPresented: $model.showingCoverage) {
+            CoverageSheet().onAppear { model.refreshStorage() }
+        }
+    }
+
+    private func figure(_ label: String, _ bytes: Int64) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(Format.bytes(bytes)).font(.callout.monospacedDigit())
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct CoverageSheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("What Sweep covers").font(.title2)
+                Text("These are the categories macOS shows in System Settings › Storage. Sweep works only inside your home folder and never estimates areas it cannot measure, so several rows below carry no number by design.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(20)
+            Divider()
+            List(StorageCoverage.map) { entry in
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(entry.macOSCategory).font(.headline)
+                        Spacer()
+                        CoverageBadge(level: entry.level)
+                    }
+                    Text(entry.explanation)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if !entry.sweepCategories.isEmpty {
+                        Text("Sweep looks at: " + entry.sweepCategories.map(\.title).joined(separator: ", "))
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .padding(.vertical, 4)
+                .accessibilityElement(children: .combine)
+            }
+            Divider()
+            HStack {
+                Spacer()
+                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+            }
+            .padding(16)
+        }
+        .frame(width: 620, height: 560)
+    }
+}
+
+struct CoverageBadge: View {
+    let level: CoverageEntry.Level
+
+    var body: some View {
+        Text(label)
+            .font(.caption2.weight(.medium))
+            .padding(.horizontal, 7).padding(.vertical, 2)
+            .background(color.opacity(0.15), in: Capsule())
+            .foregroundStyle(color)
+    }
+
+    private var label: String {
+        switch level {
+        case .covered: "Covered"
+        case .partial: "Partly covered"
+        case .notCovered: "Out of scope"
+        }
+    }
+
+    private var color: Color {
+        switch level {
+        case .covered: .green
+        case .partial: .orange
+        case .notCovered: .secondary
+        }
     }
 }

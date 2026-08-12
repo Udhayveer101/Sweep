@@ -156,83 +156,123 @@ public struct SafetyEngine: Sendable {
 
     // MARK: - Classification
 
-    /// Assigns a risk tier and the reasoning behind it. `.protected` items are dropped by the
-    /// orchestrator before they ever reach the UI.
+    /// The outcome of classification: a consequence tier, an evidence-quality tier, and the
+    /// full reasoning behind both.
+    public struct Verdict: Sendable {
+        public let risk: Risk
+        public let confidence: Confidence
+        public let rationale: [Rationale]
+    }
+
+    /// Assigns a risk tier, a confidence tier, and the reasoning behind them. `.protected` items
+    /// are dropped by the scanners before they ever reach the UI.
+    ///
+    /// Two rules govern everything here and are enforced at the end regardless of category:
+    ///  * `.safe` requires at least `.medium` confidence. Weak evidence can never produce a
+    ///    pre-selected deletion.
+    ///  * An item whose owning application is running is never `.safe`.
     public func classify(
         path: String,
         category: SweepCategory,
-        modified: Date,
+        evidence: UsageEvidence,
         bytes: Int64,
         attribution: Attribution?,
         now: Date = Date(),
         runningApps: RunningApps = .none
-    ) -> (risk: Risk, rationale: [Rationale]) {
+    ) -> Verdict {
         if let refusal = eligibility(of: path, runningApps: runningApps) {
-            return (.protected, [Rationale(rule: "Protected", detail: refusal.rawValue)])
+            return Verdict(risk: .protected, confidence: .high,
+                           rationale: [Rationale(rule: "Protected", detail: refusal.rawValue)])
         }
 
-        var rationale: [Rationale] = []
-        let ageDays = Int(now.timeIntervalSince(modified) / 86_400)
+        let confidence = evidence.confidence(for: category)
+        var rationale = evidence.statements(now: now, category: category)
         let threshold = ageThreshold(for: category)
+        let ageDays = evidence.daysSinceModified(now: now)
 
-        // Categories that contain user-authored content are never auto-selected, regardless of age.
-        // (Brief §7: user-created files; vault: "detected ≠ auto-selected".)
+        func verdict(_ risk: Risk, _ rule: String, _ detail: String) -> Verdict {
+            rationale.insert(Rationale(rule: rule, detail: detail), at: 0)
+            // The two invariants, applied centrally so no category can forget them.
+            var final = risk
+            if final == .safe && confidence < .medium {
+                rationale.append(Rationale(
+                    rule: "Not enough evidence",
+                    detail: "Sweep could not establish this well enough to select it for you."))
+                final = .review
+            }
+            if final == .safe && evidence.isRunning {
+                rationale.append(Rationale(
+                    rule: "Active",
+                    detail: "The owning application is running, so this is left for you to decide."))
+                final = .review
+            }
+            return Verdict(risk: final, confidence: confidence, rationale: rationale)
+        }
+
         switch category {
         case .largeOldFiles, .screenRecordings:
-            rationale.append(Rationale(
-                rule: "Your own file",
-                detail: "Sweep found this but will never select it for you. Decide item by item."))
-            return (.review, rationale)
+            // User-authored content. No timestamp makes this Sweep's decision.
+            return verdict(.review, "Your own file",
+                           "Sweep found this but will never select it for you. Age says nothing about whether you still want it.")
 
         case .appLeftovers:
             guard let attribution else {
-                return (.unknown, [Rationale(rule: "Unattributed",
-                                             detail: "Could not determine which app this belonged to.")])
+                return verdict(.unknown, "Unattributed",
+                               "Could not determine which app this belonged to, so Sweep will not act on it.")
             }
-            rationale.append(Rationale(rule: "Attribution", detail: attributionDetail(attribution)))
-            // Name resemblance alone is never enough to pre-select a deletion.
+            rationale.insert(Rationale(rule: "Attribution", detail: attributionDetail(attribution)), at: 0)
             if attribution == .nameHeuristic {
-                rationale.append(Rationale(
-                    rule: "Low confidence",
-                    detail: "Matched by name only, so it is shown but not selected."))
-                return (.review, rationale)
+                return verdict(.review, "Weak match",
+                               "Matched by folder name only. That is too weak to select a deletion for you.")
             }
             if ageDays < threshold {
-                rationale.append(Rationale(rule: "Recent",
-                                           detail: "Changed \(ageDays) day(s) ago — under the \(threshold)-day threshold."))
-                return (.review, rationale)
+                return verdict(.review, "Recently written",
+                               "Something wrote to this \(ageDays) day(s) ago, which is unexpected for an app that is gone.")
             }
-            rationale.append(Rationale(rule: "Owner absent",
-                                       detail: "The app that created this is not installed, and nothing has written to it in \(ageDays) days."))
-            return (.safe, rationale)
+            return verdict(.safe, "Owner absent",
+                           "The app that created this is not installed, and nothing has written to it in \(ageDays) days.")
 
         case .trash:
-            rationale.append(Rationale(rule: "Already discarded",
-                                       detail: "You moved this to the Trash. Emptying it cannot be undone."))
-            if ageDays < threshold {
-                rationale.append(Rationale(rule: "Recent",
-                                           detail: "Trashed \(ageDays) day(s) ago — recent enough that Sweep leaves the choice to you."))
-                return (.review, rationale)
+            if let days = evidence.daysSinceLastUse(now: now), days < threshold {
+                return verdict(.review, "Opened recently",
+                               "You opened this \(days) day(s) ago even though it is in the Trash.")
             }
-            return (.safe, rationale)
+            if ageDays < threshold {
+                return verdict(.review, "Recently trashed",
+                               "Trashed about \(ageDays) day(s) ago. Recent enough that Sweep leaves the choice to you.")
+            }
+            return verdict(.safe, "Already discarded",
+                           "You moved this to the Trash over \(threshold) days ago. Emptying it cannot be undone.")
 
-        case .userCaches, .userLogs, .developerJunk, .staleInstallers:
-            if let attribution {
-                rationale.append(Rationale(rule: "Attribution", detail: attributionDetail(attribution)))
+        case .staleInstallers:
+            if let days = evidence.daysSinceLastUse(now: now), days < threshold {
+                return verdict(.review, "Opened recently",
+                               "You opened this installer \(days) day(s) ago, so it may still be in use.")
             }
             if ageDays < threshold {
-                rationale.append(Rationale(rule: "In active use",
-                                           detail: "Written to \(ageDays) day(s) ago — under the \(threshold)-day threshold, so it is shown but not selected."))
-                return (.review, rationale)
+                return verdict(.review, "Recent", "Downloaded or changed \(ageDays) day(s) ago.")
             }
             if bytes < policy.minimumAutoSelectBytes {
-                rationale.append(Rationale(rule: "Small",
-                                           detail: "Under \(Format.bytes(policy.minimumAutoSelectBytes)) — not worth pre-selecting."))
-                return (.review, rationale)
+                return verdict(.review, "Small",
+                               "Under \(Format.bytes(policy.minimumAutoSelectBytes)) — not worth pre-selecting.")
             }
-            rationale.append(Rationale(rule: "Regenerable",
-                                       detail: "\(category.consequence) Last written \(ageDays) days ago."))
-            return (.safe, rationale)
+            return verdict(.safe, "Installer already used",
+                           "No record of it being opened, and it has not changed in \(ageDays) days. The installed app is unaffected.")
+
+        case .userCaches, .userLogs, .developerJunk:
+            if let attribution {
+                rationale.insert(Rationale(rule: "Attribution", detail: attributionDetail(attribution)), at: 0)
+            }
+            if ageDays < threshold {
+                return verdict(.review, "In active use",
+                               "Written to \(ageDays) day(s) ago, under the \(threshold)-day threshold.")
+            }
+            if bytes < policy.minimumAutoSelectBytes {
+                return verdict(.review, "Small",
+                               "Under \(Format.bytes(policy.minimumAutoSelectBytes)) — not worth pre-selecting.")
+            }
+            return verdict(.safe, "Regenerable",
+                           "\(category.consequence) Nothing has written to it in \(ageDays) days.")
         }
     }
 
