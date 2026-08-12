@@ -22,5 +22,11 @@ ln -s /Applications "$STAGE/Applications"
 hdiutil create -volname "Sweep" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
 rm -rf "$STAGE"
 
+# The disk image is signed too when an identity is available. Gatekeeper assesses the container
+# the user actually double-clicks, so an unsigned DMG around a signed app still warns.
+if [ -n "${SWEEP_SIGN_ID:-}" ]; then
+    codesign --force --timestamp --sign "$SWEEP_SIGN_ID" "$DMG"
+fi
+
 echo "Built $DMG"
 shasum -a 256 "$DMG"
