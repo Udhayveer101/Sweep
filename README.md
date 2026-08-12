@@ -36,13 +36,11 @@ optional and only widens what macOS lets it see.
 
 ## Install
 
-Download `Sweep-1.0.dmg` from [Releases](https://github.com/Udhayveer101/Sweep/releases), open
-it, and drag Sweep to Applications.
+Download `Sweep-1.0.1.dmg` from [Releases](https://github.com/Udhayveer101/Sweep/releases), open
+it, and drag Sweep to Applications. Then just open it — the app is signed with a Developer ID
+certificate and notarized by Apple, so there is no Gatekeeper warning to work around.
 
-**The first launch needs one extra step.** Sweep is ad-hoc signed, not signed with an Apple
-Developer ID, so Gatekeeper blocks it once: open **System Settings → Privacy & Security** and
-click **Open Anyway**. Full walkthrough, permissions, and troubleshooting are in
-[`docs/INSTALL.md`](docs/INSTALL.md).
+Permissions and troubleshooting are covered in [`docs/INSTALL.md`](docs/INSTALL.md).
 
 ## Build from source
 

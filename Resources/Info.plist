@@ -2,22 +2,35 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>Sweep</string>
-    <key>CFBundleDisplayName</key><string>Sweep</string>
-    <key>CFBundleIdentifier</key><string>com.sweep.app</string>
-    <key>CFBundleExecutable</key><string>Sweep</string>
-    <key>CFBundleIconFile</key><string>Sweep</string>
-    <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.0</string>
-    <key>CFBundleVersion</key><string>1</string>
-    <key>LSMinimumSystemVersion</key><string>14.0</string>
-    <key>NSHighResolutionCapable</key><true/>
-    <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
-    <key>NSHumanReadableCopyright</key><string>Sweep</string>
-    <!-- Sweep reads only inside the user's home folder. Full Disk Access is optional and
-         only widens what macOS lets it see; the app degrades cleanly without it. -->
-    <key>NSDesktopFolderUsageDescription</key><string>Sweep looks for old installers and screen captures on your Desktop.</string>
-    <key>NSDocumentsFolderUsageDescription</key><string>Sweep looks for large, unopened files in your Documents folder. It never selects them for you.</string>
-    <key>NSDownloadsFolderUsageDescription</key><string>Sweep looks for installers you already used in your Downloads folder.</string>
+	<key>CFBundleDisplayName</key>
+	<string>Sweep</string>
+	<key>CFBundleExecutable</key>
+	<string>Sweep</string>
+	<key>CFBundleIconFile</key>
+	<string>Sweep</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.sweep.app</string>
+	<key>CFBundleName</key>
+	<string>Sweep</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.1</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.utilities</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Sweep looks for old installers and screen captures on your Desktop.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Sweep looks for large, unopened files in your Documents folder. It never selects them for you.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Sweep looks for installers you already used in your Downloads folder.</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>Sweep</string>
 </dict>
 </plist>

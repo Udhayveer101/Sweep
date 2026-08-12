@@ -62,54 +62,43 @@ the identity stays stable between local rebuilds.
 
 One source of truth: `CFBundleShortVersionString` (marketing) and `CFBundleVersion` (build) in
 `Resources/Info.plist`. `make-dmg.sh` reads the marketing version out of the built bundle, so
-the artifact name follows automatically — `Sweep-1.0.dmg`. The Git tag is `v` plus the same
-marketing version (`v1.0.0` for the 1.0 release), and the GitHub release is named `Sweep 1.0`.
+the artifact name follows automatically — `Sweep-1.0.1.dmg`. The Git tag is `v` plus the same
+marketing version (`v1.0.1` for the 1.0.1 release), and the GitHub release is named `Sweep 1.0.1`.
 Bump the plist, rebuild, tag; nothing else carries a version number.
 
-## What genuinely cannot be completed here
+## Signing status
 
-These are external dependencies, not unfinished work. Nothing in the codebase pretends they are
-done.
+**Resolved at 1.0.1.** Releases are signed with `Developer ID Application: Udhayveer Singh
+(P66SB4MX92)` and notarized by Apple. Both the app and the DMG carry stapled tickets, so they
+validate offline.
 
-### 1. Developer ID signing — blocked on an Apple Developer account
-The app is currently **ad-hoc signed**. Distribution to any other Mac requires a Developer ID
-Application certificate. The only identity available on the build machine is an *Apple
-Development* certificate (`security find-identity -v -p codesigning`), which cannot be used for
-distribution or notarization.
+Recorded because the difference is measurable rather than cosmetic. The same test, run on both
+releases — quarantine attribute applied, then `spctl -a -t exec`:
 
-**Measured consequence**, not a prediction: a copy of the shipped `.app` was given the download
-quarantine flag and assessed with `spctl -a -t exec`, which returned `rejected`. Every user
-downloading the DMG therefore hits the Gatekeeper prompt once, and must use **Open Anyway** or
-strip the quarantine attribute. `docs/INSTALL.md` walks them through it.
+| Release | Signature | Result |
+|---|---|---|
+| 1.0 | ad-hoc | `rejected` |
+| 1.0.1 | Developer ID + notarized | `accepted`, `source=Notarized Developer ID` |
 
-Exact action required: enrol in the Apple Developer Program, install the certificate, then
+Notarization of the app took roughly 25 minutes in Apple's queue; the DMG took under a minute.
+The queue is the whole cost, and it varies — budget for it rather than assuming the first
+timing repeats.
 
-```bash
-codesign --force --options runtime --timestamp \
-  --sign "Developer ID Application: YOUR NAME (TEAMID)" build/Sweep.app
-```
+Certificate expiry: **1 Feb 2027**. Builds already notarized keep validating past that date
+because the signature carries a secure timestamp; signing *new* builds requires renewal.
 
-Add `--options runtime` (Hardened Runtime) as shown — notarization rejects builds without it.
-
-### 2. Notarization — blocked on the same account
-```bash
-ditto -c -k --keepParent build/Sweep.app build/Sweep.zip
-xcrun notarytool submit build/Sweep.zip --apple-id <id> --team-id <team> --password <app-specific> --wait
-xcrun stapler staple build/Sweep.app
-```
-
-Until this is done, Gatekeeper will require a right-click → Open on first launch on another Mac.
-
-### 3. App Store distribution — not viable as designed, by choice
+### App Store distribution — not viable as designed, by choice
 The App Sandbox would prevent Sweep from reading `~/Library/Caches` and `~/Library/Application
 Support` for other applications, which is most of what it does. Direct distribution is the
 correct channel for this product; this is a design conclusion, not a gap.
 
-## Known operational note: re-signing resets TCC grants
+## Known operational note: ad-hoc rebuilds reset TCC grants
 
 Each ad-hoc rebuild changes the code signature, so macOS treats the app as a new identity and
-re-asks for folder permissions. This was observed during development and is expected. A stable
-Developer ID signature makes grants persist across updates.
+re-asks for folder permissions. This was observed during development and is expected there.
+Developer ID–signed releases do not have this problem: the signature is stable across builds, so
+permission grants survive an update. Anyone developing against an unsigned local build should
+still expect the re-prompting.
 
 ## Known limitations
 
@@ -131,7 +120,7 @@ SWEEP_PERF=1 swift test --filter Performance # timings on the target machine
 Then install the artifact the way a user would, rather than testing the development build:
 
 ```bash
-hdiutil attach build/Sweep-1.0.dmg -nobrowse
+hdiutil attach build/Sweep-1.0.1.dmg -nobrowse
 cp -R /Volumes/Sweep/Sweep.app /Applications/
 hdiutil detach /Volumes/Sweep
 codesign --verify --deep --strict /Applications/Sweep.app

@@ -10,44 +10,27 @@ For anyone installing Sweep on a Mac. No developer tools needed.
 ## 1. Download
 
 Go to the [Releases page](https://github.com/Udhayveer101/Sweep/releases) and download
-`Sweep-1.0.dmg`.
+`Sweep-1.0.1.dmg`.
 
 ## 2. Install
 
-1. Double-click the downloaded `Sweep-1.0.dmg`.
+1. Double-click the downloaded `Sweep-1.0.1.dmg`.
 2. A window opens with the Sweep icon and an Applications folder.
 3. Drag **Sweep** onto **Applications**.
 4. Eject the disk image (click the ⏏ next to "Sweep" in the Finder sidebar).
 
-## 3. First launch — important
+## 3. First launch
 
-Sweep is not yet signed with an Apple Developer ID certificate (see
-[Why the warning appears](#why-the-warning-appears)). **macOS will refuse to open it on the
-first try.** This is expected and is a one-time step.
+Open Sweep from Applications the same way you would any other app. There is no warning to get
+past and no workaround needed.
 
-You will see: *"Sweep" cannot be opened because Apple cannot check it for malicious software.*
+Sweep is signed with an Apple Developer ID certificate and has been notarized by Apple, which
+means Apple has scanned the build and issued it a ticket. That ticket is stapled into both the
+app and the disk image, so macOS can verify it even if you are offline the first time you open
+it.
 
-To open it:
-
-1. Open **System Settings → Privacy & Security**.
-2. Scroll down to the Security section. There is a line saying *"Sweep" was blocked*.
-3. Click **Open Anyway**, then confirm with Touch ID or your password.
-
-If that line is not there, run this in Terminal instead, then open Sweep normally:
-
-```bash
-xattr -d com.apple.quarantine /Applications/Sweep.app
-```
-
-After this, Sweep opens by double-clicking like any other app.
-
-### Why the warning appears
-
-Apple's Gatekeeper only trusts apps signed with a paid Apple Developer ID certificate and
-notarized by Apple. Sweep's author does not currently hold that certificate, so the release
-build carries an *ad-hoc* signature. The app is unchanged and complete — macOS simply cannot
-attribute it to a registered developer. This is verified behaviour, not a guess: a quarantined
-copy of the release was tested and Gatekeeper rejected it.
+If you are upgrading from 1.0, that release was ad-hoc signed and did show a Gatekeeper warning.
+Drag the old copy to the Trash first, then install this one; the warning is gone.
 
 ## 4. Permissions
 
@@ -98,7 +81,14 @@ Files and Folders and Full Disk Access lists.
 ## Troubleshooting
 
 **"Sweep is damaged and can't be opened"**
-This is the quarantine flag, not real damage. Follow step 3 above.
+This should not happen with a release downloaded from the Releases page, since those builds are
+notarized. If it does, the download is likely incomplete or corrupted — delete it and download
+again. You can confirm the file is intact by comparing its checksum to the one in the release
+notes:
+
+```bash
+shasum -a 256 ~/Downloads/Sweep-1.0.1.dmg
+```
 
 **Scan finds far less than expected**
 macOS is hiding folders from Sweep. Grant Full Disk Access (step 4) and scan again. Sweep
