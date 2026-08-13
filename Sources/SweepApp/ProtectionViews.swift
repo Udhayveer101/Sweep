@@ -58,6 +58,75 @@ struct ThreatBanner: View {
     }
 }
 
+// MARK: - Always-present status row
+
+/// A compact, permanently-visible protection status line on the results screen.
+///
+/// Without this, a clean protection result is invisible and the quarantine, definitions and
+/// update controls are unreachable — the UI would only surface security when something is
+/// wrong, which is exactly backwards. The research is explicit that last-scan time, definitions
+/// date and scanned scope should be permanently visible, because that is the cheapest trust a
+/// scanner can offer. (Vault: Security Scan UX Principles, rule 3.)
+struct ProtectionStatusRow: View {
+    @Environment(AppModel.self) private var model
+    @State private var showingDetail = false
+
+    var body: some View {
+        let protection = model.protection
+        if let report = protection.report {
+            HStack(spacing: 8) {
+                Image(systemName: icon(report))
+                    .foregroundStyle(tint(report))
+                    .accessibilityHidden(true)
+                Text(headline(report))
+                    .font(.callout)
+                Text(detail(report, protection))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer()
+                Button("Protection…") { showingDetail = true }
+                    .buttonStyle(.link)
+                    .font(.callout)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .accessibilityElement(children: .combine)
+            .sheet(isPresented: $showingDetail) { ProtectionDetailView() }
+        }
+    }
+
+    private func icon(_ report: MalwareReport) -> String {
+        if !report.threats.isEmpty { return "exclamationmark.shield.fill" }
+        return report.isTrulyClean ? "checkmark.shield" : "shield.lefthalf.filled"
+    }
+
+    private func tint(_ report: MalwareReport) -> Color {
+        if !report.threats.isEmpty { return .orange }
+        return report.isTrulyClean ? .green : .secondary
+    }
+
+    private func headline(_ report: MalwareReport) -> String {
+        report.threats.isEmpty
+            ? "No known threats found"
+            : "\(report.threats.count) item(s) worth reviewing"
+    }
+
+    private func detail(_ report: MalwareReport, _ protection: ProtectionModel) -> String {
+        var parts = ["\(report.coverage.artifactsExamined) program(s) checked"]
+        if !report.coverage.unreadable.isEmpty {
+            parts.append("\(report.coverage.unreadable.count) location(s) unreadable")
+        }
+        if let definitions = protection.definitions {
+            parts.append(definitions.isStale() ? "definitions out of date" : "definitions current")
+        } else {
+            parts.append("no definitions downloaded")
+        }
+        return parts.joined(separator: " · ")
+    }
+}
+
 // MARK: - Protection summary (clean state)
 
 /// The zero-findings state — roughly 99% of scans, and the screen that has to earn trust.

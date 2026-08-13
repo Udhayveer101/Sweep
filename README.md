@@ -28,8 +28,10 @@ existing tool and contains no third-party proprietary code, algorithms, assets, 
 
 ## Protection (malware scanning)
 
-Sweep also looks for malware, as a second scope of the same scan rather than a separate app.
+Sweep can also look for malware, as an optional scope of the same scan rather than a separate app.
 
+- **Off by default, switched on beside the Scan button.** A storage scan takes seconds; the
+  malware pass takes minutes, so it runs only when you ask for it. The choice is remembered.
 - **On-demand, not real-time.** Real-time protection needs an Apple entitlement Sweep does not
   have, so it does not claim it.
 - **Layered evidence, never one test.** Code signature, notarization and revocation state, macOS

@@ -94,10 +94,16 @@ final class AppModel {
         guard storageObservers.isEmpty else { return }
         let center = NotificationCenter.default
         let workspace = NSWorkspace.shared.notificationCenter
-        // Returning to the app after using Finder, another cleaner, or a big download.
+        // Returning to the app after using Finder, another cleaner, or a big download — or
+        // after granting/revoking Full Disk Access in System Settings, which is why the
+        // permission state is re-read here and not only at launch. Without this the banner
+        // would outlive the grant that dismisses it until the next relaunch.
         storageObservers.append(center.addObserver(
             forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refreshStorage() }
+                MainActor.assumeIsolated {
+                    self?.refreshStorage()
+                    self?.fullDiskAccess = FullDiskAccess.status()
+                }
             })
         // Waking from sleep — arbitrary time may have passed.
         storageObservers.append(workspace.addObserver(
@@ -132,10 +138,15 @@ final class AppModel {
         errorMessage = nil
 
         let context = makeContext()
+        let runProtection = settings.protectionEnabled
+        // A result from a previous run must not survive into a scan that did not produce one,
+        // or the screen would report protection findings the user did not just ask for.
+        if !runProtection { protection.clearResults() }
+
         scanTask = Task { [orchestrator, protection] in
-            // Protection runs concurrently with cleanup: both are disk-bound, and the user
-            // asked one question ("what is on my Mac?"), so they should not wait twice.
-            async let protectionScan: Void = protection.scan()
+            // When protection is on it runs concurrently with cleanup: both are disk-bound, and
+            // the user asked one question, so they should not wait for two sequential passes.
+            async let protectionScan: Void = runProtection ? protection.scan() : ()
             do {
                 let report = try await orchestrator.scan(context: context) { event in
                     Task { @MainActor [weak self] in self?.apply(event) }
@@ -327,6 +338,20 @@ final class AppModel {
 
     func saveSettings() {
         settings.save(to: Settings.defaultURL)
+    }
+
+    /// Turns the protection pass on or off for future scans, and persists the choice.
+    ///
+    /// Refuses while a scan is in flight: changing what the running scan covers would make its
+    /// result describe neither setting. The control is also disabled in the UI, so this is the
+    /// second of two guards rather than the only one.
+    func setProtectionEnabled(_ enabled: Bool) {
+        guard !isBusy, settings.protectionEnabled != enabled else { return }
+        settings.protectionEnabled = enabled
+        saveSettings()
+        // Turning it off clears any previous protection result, so the UI cannot keep showing
+        // findings from a scan mode that is no longer active.
+        if !enabled { protection.clearResults() }
     }
 
     func reset() {

@@ -45,6 +45,18 @@ final class ProtectionModel {
         quarantined = await quarantineStore.entries()
     }
 
+    /// Drops any previous protection result. Used when protection is switched off or a scan
+    /// runs without it, so the UI never shows findings from a run that did not just happen.
+    /// Quarantine contents are untouched — those are the user's, not this scan's.
+    func clearResults() {
+        report = nil
+        phase = nil
+        examined = 0
+        selection = []
+        outcomes = []
+        ruleSetProblems = []
+    }
+
     // MARK: - Scanning
 
     /// Runs a protection scan. Returns when finished so the caller can sequence it with cleanup.

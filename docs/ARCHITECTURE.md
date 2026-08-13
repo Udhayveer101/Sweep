@@ -27,7 +27,10 @@ independently testable against fixture directory trees rather than a real home f
 
 ## The protection pipeline
 
-Malware scanning is a second scope of the same scan, not a second application. It reuses the
+Malware scanning is an optional second scope of the same scan, not a second application. It is
+off by default and enabled by the Protection control beside the Scan button, because the cleanup
+pass costs seconds and the protection pass costs minutes — bundling them would make the common
+case slower for a check most runs do not need. The choice persists in `Settings`. It reuses the
 cleanup side's shape — discover, gather evidence, classify, recommend, act, verify, report —
 and its safety instincts.
 
@@ -66,7 +69,7 @@ used safely: a rule match on validly-signed, non-revoked code is demoted rather 
 | `CleanupExecutor` | Re-validation, deletion, per-item verification. |
 | `Restorer` | Puts a cleanup back from the Trash. |
 | `HistoryStore` | Local-only, bounded, owner-readable-only cleanup log. |
-| `FullDiskAccess` | Probe-based TCC detection with graceful degradation. |
+| `FullDiskAccess` | Probe-based TCC detection (errno-classified, multi-path) with graceful degradation. Re-read on `didBecomeActive`, so returning from System Settings updates the banner without a relaunch. |
 | `MalwareScanner` | Protection-scan orchestration, bounded concurrency, coverage accounting. |
 | `CodeSignatureInspector` | `SecStaticCode` validity, notarization, revocation, cdhash, Team ID. |
 | `TrustBaseline` | Decides what needs no accusing — the main false-positive control. |

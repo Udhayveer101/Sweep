@@ -7,42 +7,82 @@ struct HomeView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        VStack(spacing: 24) {
-            Spacer()
-            BrandMark(size: 88)
+        @Bindable var model = model
+        // The content scrolls and the history strip stays put, so a short window never clips
+        // the header and never produces two competing scroll areas.
+        VStack(spacing: 0) {
+            ScrollView(.vertical) {
+                VStack(spacing: 24) {
+                    BrandMark(size: 88)
 
-            VStack(spacing: 8) {
-                Text("Sweep")
-                    .font(.system(size: 34, weight: .semibold, design: .rounded))
-                Text("Finds files your Mac no longer needs, explains why, and moves them to the Trash so you can change your mind.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 460)
+                    VStack(spacing: 8) {
+                        Text("Sweep")
+                            .font(.system(size: 34, weight: .semibold, design: .rounded))
+                        Text("Finds files your Mac no longer needs, explains why, and moves them to the Trash so you can change your mind.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 460)
+                    }
+
+                    // One scanning control group: Scan is the primary action, Protection is the
+                    // optional qualifier sitting beside it at the same height and baseline.
+                    HStack(spacing: 10) {
+                        Button(action: model.startScan) {
+                            Text("Scan").frame(width: 120)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                        .keyboardShortcut(.defaultAction)
+
+                        ProtectionToggle(
+                            isOn: Binding(
+                                get: { model.settings.protectionEnabled },
+                                set: { model.setProtectionEnabled($0) }),
+                            // Changing what a running scan covers halfway through would make the
+                            // result describe neither choice, so the control waits it out.
+                            isEnabled: !model.isBusy)
+                    }
+
+                    Text(model.settings.protectionEnabled
+                         ? "Scans also check for malware. That takes a few minutes longer."
+                         : "Scans cover storage only.")
+                        .font(.footnote)
+                        .foregroundStyle(.tertiary)
+                        .animation(.smooth(duration: 0.25), value: model.settings.protectionEnabled)
+
+                    StoragePanel()
+
+                    if model.fullDiskAccess == .denied {
+                        PermissionBanner()
+                    }
+
+                    if let last = model.history.first {
+                        Text("Last cleanup \(last.finished.formatted(.relative(presentation: .named))) — \(Format.bytes(last.verifiedBytesFreed)) freed.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                // Top-anchored: the window opens showing the logo and title, never mid-page.
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 32)
+                .padding(.top, 28)
+                .padding(.bottom, 24)
             }
+            // Only bounces when there is genuinely more content than window.
+            .scrollBounceBehavior(.basedOnSize)
 
-            Button(action: model.startScan) {
-                Text("Scan").frame(width: 120)
+            // Separated from the scroll area, so content that scrolls past ends at a clear
+            // edge instead of colliding with the strip.
+            if !model.history.isEmpty {
+                Divider()
+                HistoryStrip()
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity)
+                    .background(.bar)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .keyboardShortcut(.defaultAction)
-
-            StoragePanel()
-
-            if model.fullDiskAccess == .denied {
-                PermissionBanner()
-            }
-
-            if let last = model.history.first {
-                Text("Last cleanup \(last.finished.formatted(.relative(presentation: .named))) — \(Format.bytes(last.verifiedBytesFreed)) freed.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            HistoryStrip()
         }
-        .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
@@ -179,6 +219,10 @@ struct ResultsView: View {
                 }
                 .frame(maxHeight: .infinity)
             }
+            Divider()
+            // Protection is reachable from here whatever it found — a security feature that
+            // only appears when something is wrong cannot be checked, only reacted to.
+            ProtectionStatusRow()
             Divider()
             ResultsFooter(confirming: $confirming)
         }
@@ -420,7 +464,6 @@ struct ItemRow: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                ConfidenceBadge(confidence: item.confidence)
                 RiskBadge(risk: item.risk)
                 Text(Format.bytes(item.bytes))
                     .font(.callout.monospacedDigit())
@@ -436,6 +479,7 @@ struct ItemRow: View {
 
             if showDetail {
                 VStack(alignment: .leading, spacing: 6) {
+                    ConfidenceRow(confidence: item.confidence)
                     ForEach(item.rationale, id: \.self) { r in
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Text(r.rule).font(.caption.bold()).frame(width: 110, alignment: .leading)
@@ -825,46 +869,37 @@ struct BlockedRootNotice: View {
 
 // MARK: - Confidence
 
-struct ConfidenceBadge: View {
+/// How well-evidenced the verdict is, shown as one more row of the item's reasoning.
+///
+/// Deliberately *not* a coloured badge on the row itself: on a list of ordinary caches, a green
+/// "Strong evidence" chip reads as a security verdict and pulls the eye away from what the row
+/// is actually about. The confidence still drives classification — this only changes how it is
+/// presented. (`SafetyEngine` continues to require at least medium confidence for `.safe`.)
+struct ConfidenceRow: View {
     let confidence: Confidence
 
     var body: some View {
-        Label(label, systemImage: symbol)
-            .font(.caption2)
-            .foregroundStyle(color)
-            .labelStyle(.titleAndIcon)
-            .help(explanation)
-            .accessibilityLabel("Evidence: \(label). \(explanation)")
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text("Confidence").font(.caption.bold()).frame(width: 110, alignment: .leading)
+            Text("\(strength) — \(explanation)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Confidence: \(strength). \(explanation)")
     }
 
-    private var label: String {
+    private var strength: String {
         switch confidence {
-        case .high: "Strong evidence"
-        case .medium: "Good evidence"
-        case .low: "Weak evidence"
-        case .none: "No evidence"
+        case .high: "Strong"
+        case .medium: "Good"
+        case .low: "Weak"
+        case .none: "None"
         }
     }
 
-    private var symbol: String {
-        switch confidence {
-        case .high: "checkmark.seal"
-        case .medium: "info.circle"
-        case .low: "questionmark.circle"
-        case .none: "exclamationmark.triangle"
-        }
-    }
-
-    private var color: Color {
-        switch confidence {
-        case .high: .green
-        case .medium: .secondary
-        case .low: .orange
-        case .none: .red
-        }
-    }
-
-    private var explanation: String {
+private var explanation: String {
         switch confidence {
         case .high: "macOS records this being opened, or its app is running right now."
         case .medium: "No open-record, but this is app-written data whose write time is a sound signal."
