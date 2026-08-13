@@ -125,6 +125,19 @@ struct ScanningView: View {
             .padding(16)
             .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
 
+            if let phase = model.protection.phase {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Protection — \(phase.title)")
+                    if model.protection.examined > 0 {
+                        Text("\(model.protection.examined) checked").foregroundStyle(.tertiary)
+                    }
+                }
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .accessibilityElement(children: .combine)
+            }
+
             Button("Cancel", role: .cancel) { model.cancelScan() }
                 .keyboardShortcut(.cancelAction)
             Spacer()
@@ -142,6 +155,9 @@ struct ResultsView: View {
     var body: some View {
         @Bindable var model = model
         VStack(spacing: 0) {
+            // A threat gets its own decision surface above the cleanup results rather than a
+            // row inside them. (Vault: UI Integration Design.)
+            ThreatBanner()
             if let report = model.report, report.allItems.isEmpty {
                 EmptyResultsView(report: report)
             } else {
@@ -212,6 +228,8 @@ struct EmptyResultsView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 420)
             }
+            ProtectionSummary()
+                .frame(maxWidth: 460)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

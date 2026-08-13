@@ -36,6 +36,9 @@ final class AppModel {
     var undoSecondsRemaining: Int = 0
     var undoResult: Restorer.Result?
 
+    /// Protection runs as a scope of the same scan, not a separate app.
+    let protection = ProtectionModel()
+
     private let orchestrator = ScanOrchestrator()
     private let historyStore = HistoryStore()
     private var scanTask: Task<Void, Never>?
@@ -63,6 +66,7 @@ final class AppModel {
 
     func load() async {
         fullDiskAccess = FullDiskAccess.status()
+        await protection.load()
         refreshStorage()
         observeStorageChanges()
         history = await historyStore.all()
@@ -128,11 +132,15 @@ final class AppModel {
         errorMessage = nil
 
         let context = makeContext()
-        scanTask = Task { [orchestrator] in
+        scanTask = Task { [orchestrator, protection] in
+            // Protection runs concurrently with cleanup: both are disk-bound, and the user
+            // asked one question ("what is on my Mac?"), so they should not wait twice.
+            async let protectionScan: Void = protection.scan()
             do {
                 let report = try await orchestrator.scan(context: context) { event in
                     Task { @MainActor [weak self] in self?.apply(event) }
                 }
+                await protectionScan
                 await MainActor.run {
                     self.report = report
                     self.selection = Set(report.allItems.filter(\.autoSelected).map(\.id))
@@ -140,8 +148,10 @@ final class AppModel {
                     self.phase = .results
                 }
             } catch is CancellationError {
+                await protectionScan
                 await MainActor.run { self.phase = .idle }
             } catch {
+                await protectionScan
                 await MainActor.run {
                     self.errorMessage = "The scan could not start: \(error.localizedDescription)"
                     self.phase = .idle
@@ -165,6 +175,7 @@ final class AppModel {
     func cancelScan() {
         scanTask?.cancel()
         scanTask = nil
+        protection.cancel()
         phase = .idle
     }
 

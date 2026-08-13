@@ -53,6 +53,10 @@ public struct Settings: Codable, Sendable, Equatable {
     public var policy = SafetyPolicy()
     /// Opt-in only, and it never relaxes any safety rule.
     public var showTechnicalDetail = false
+    /// Access key for threat-definition feeds that require one. Optional: without it those
+    /// feeds are reported as not configured rather than silently skipped, and the scanner
+    /// still runs every layer that needs no network at all.
+    public var threatFeedAuthKey: String?
 
     public init() {}
 

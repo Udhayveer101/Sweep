@@ -288,8 +288,16 @@ struct StorageOverviewTests {
         try Data(count: 300_000_000).write(to: scratch)
         let after = try #require(StorageOverview.read())
         #expect(after.measuredAt > before.measuredAt)
-        // Free space should not have gone *up* after writing 300 MB.
-        #expect(after.freeCapacity <= before.freeCapacity)
+        // A re-read must reflect what is actually on the volume rather than a cached figure.
+        //
+        // Deliberately *not* asserted as `after.freeCapacity <= before.freeCapacity`: macOS
+        // reclaims purgeable space concurrently, so free space genuinely can rise while this
+        // test writes 300 MB, and that assertion was observed failing on an otherwise-healthy
+        // machine. What the test actually cares about is that the figure moved at all — a
+        // cached or hard-coded `read()` would return an identical value.
+        let moved = after.freeCapacity != before.freeCapacity
+            || after.usedCapacity != before.usedCapacity
+        #expect(moved, "read() must report fresh volume figures, not a cached snapshot")
     }
 
     @Test("Every macOS storage category is accounted for, covered or explicitly not")

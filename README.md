@@ -26,10 +26,33 @@ existing tool and contains no third-party proprietary code, algorithms, assets, 
   privileged helper, no launch agent, no daemon, and has no networking code at all.
 - **Nothing leaves your Mac.** The cleanup history is stored locally, owner-readable only.
 
+## Protection (malware scanning)
+
+Sweep also looks for malware, as a second scope of the same scan rather than a separate app.
+
+- **On-demand, not real-time.** Real-time protection needs an Apple entitlement Sweep does not
+  have, so it does not claim it.
+- **Layered evidence, never one test.** Code signature, notarization and revocation state, macOS
+  download provenance, startup-item enumeration, known-bad hashes, known-bad signing
+  certificates, and YARA rules — including the rules macOS itself ships.
+- **Trust does most of the work.** Apple-signed, notarized, and intact Developer ID code is
+  suppressed rather than scrutinised. On one real Mac that accounted for all 8,214 programs
+  examined, with zero findings.
+- **Only exact matches are ever pre-selected.** A file hash or signing-certificate match can be
+  pre-selected for you; anything weaker is shown for review and never ticked.
+- **Nothing is deleted.** Detected items go to a reversible, journalled quarantine you can undo.
+- **It tells you what it could not check** — unreadable locations, and how old the definitions are.
+- **It shows what macOS already did.** XProtect removes malware silently with no interface;
+  Sweep surfaces its version and rule count.
+
+Threat definitions are downloaded periodically and matched locally. Nothing about your files —
+no names, paths, hashes, or contents — is ever sent anywhere.
+
 ## Requirements
 
-macOS 14 or later. Apple Silicon or Intel. No runtime dependencies — Sweep links only against
-system frameworks and has no networking code.
+macOS 14 or later. Apple Silicon or Intel. Sweep links against system frameworks plus YARA-X
+(BSD-3-Clause), which is bundled inside the app — there is nothing to install separately.
+Networking is used for one thing only: fetching threat definitions.
 
 Permissions: Sweep may ask for Desktop, Documents, and Downloads access. Full Disk Access is
 optional and only widens what macOS lets it see.
@@ -62,12 +85,24 @@ swift test
 ## Testing
 
 ```bash
-swift test                                   # 83 tests, 13 suites
+swift test                                   # 163 tests, 26 suites
 SWEEP_PERF=1 swift test --filter Performance # opt-in, runs against your real home folder
 ```
 
 The suites cover filesystem traversal, each scanner, the safety engine's refusal rules, the
-cleanup executor and its restore path, storage accounting, and the orchestrator.
+cleanup executor and its restore path, storage accounting, the orchestrator, and — for the
+protection scanner — threat correlation, the trust baseline, quarantine and restore, candidate
+gating, persistence parsing, provenance, code-signature inspection and definition handling.
+
+A live scan against your own Mac is opt-in, because its results depend on what you have
+installed:
+
+```bash
+SWEEP_PROTECTION_LIVE=1 swift test --filter LiveProtection
+```
+
+It prints what was examined and found, and asserts the rule that matters most: nothing may be
+pre-selected for removal without exact-identity evidence.
 
 Performance measurements run against your real home folder and are opt-in:
 

@@ -25,6 +25,33 @@ Report         per-item outcomes with reasons; local-only history log
 Each stage is a separate type with no shared mutable state, which is what makes them
 independently testable against fixture directory trees rather than a real home folder.
 
+## The protection pipeline
+
+Malware scanning is a second scope of the same scan, not a second application. It reuses the
+cleanup side's shape — discover, gather evidence, classify, recommend, act, verify, report —
+and its safety instincts.
+
+```
+Inventory      candidate artifacts only (Mach-O, scripts, bundles, persistence, extensions)
+   ↓
+Trust          Apple-signed / notarized / intact Developer ID / pre-existing ⇒ suppressed
+   ↓
+Evidence       signature · provenance · persistence · hash IOC · certificate · YARA rules
+   ↓
+Correlate      ThreatCorrelator — the only type allowed to reach a verdict
+   ↓
+Classify       threat class × confidence tier
+   ↓
+User review    every finding explains itself; only exact-identity matches are pre-selected
+   ↓
+Quarantine     reversible, journalled, verified — nothing is ever deleted
+   ↓
+Report         per-item outcomes with reasons, plus what was *not* scanned
+```
+
+Layers emit `Signal`s, never verdicts. That separation is what lets third-party rule sets be
+used safely: a rule match on validly-signed, non-revoked code is demoted rather than raised.
+
 ## Modules
 
 | Type | Responsibility |
@@ -40,8 +67,27 @@ independently testable against fixture directory trees rather than a real home f
 | `Restorer` | Puts a cleanup back from the Trash. |
 | `HistoryStore` | Local-only, bounded, owner-readable-only cleanup log. |
 | `FullDiskAccess` | Probe-based TCC detection with graceful degradation. |
+| `MalwareScanner` | Protection-scan orchestration, bounded concurrency, coverage accounting. |
+| `CodeSignatureInspector` | `SecStaticCode` validity, notarization, revocation, cdhash, Team ID. |
+| `TrustBaseline` | Decides what needs no accusing — the main false-positive control. |
+| `ThreatCorrelator` | The only authority on "is this a threat", mirroring `SafetyEngine`. |
+| `PersistenceEnumerator` | launchd, plug-in surfaces, shell init, cron. |
+| `QuarantineStore` | Reversible isolation with a journal and verified restore. |
+| `DefinitionsUpdater` | HTTPS-only definition fetch, verified atomic swap, rollback. |
+| `YaraEngine` | YARA-X binding; reads Apple's live XProtect rules in place. |
+| `XProtectStatus` | Surfaces what macOS's own protection is doing. |
 
 ## Decisions and why
+
+### The malware scanner is on-demand, and says so
+Real-time protection needs the Endpoint Security entitlement, which Apple grants case-by-case
+with no published criteria. Sweep is architected as though it will never arrive, and the UI
+never implies protection it does not provide. See `docs/SECURITY.md`.
+
+### Detection is layered, and trust suppresses
+No single test may condemn a file. The trust baseline removes the overwhelming majority of the
+corpus cheaply, and only the residue reaches the expensive layers. Measured on one real Mac:
+8,214 artifacts examined, all suppressed by trust, 0 findings, ~155 s.
 
 ### No privileged helper, no elevation
 The scope is user-owned files only. Narrowing the scope removes the need for a privileged

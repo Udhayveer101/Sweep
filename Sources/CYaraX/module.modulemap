@@ -1,0 +1,5 @@
+module CYaraX [system] {
+    header "shim.h"
+    link "yara_x_capi"
+    export *
+}
