@@ -151,7 +151,7 @@ struct BlockedRootTests {
         #expect(RecommendationEngine().summary(for: result) == "Nothing found.")
     }
 
-    @Test("A missing folder is not an error — it just does not exist here")
+    @Test("A missing folder is not an error, it just does not exist here")
     func missingRootIsNotBlocked() async {
         let f = Fixture()
         let result = await TrashScanner().scan(f.context())
@@ -232,7 +232,7 @@ struct StorageOverviewTests {
     func usedMatchesSystemSettingsBasis() {
         // Figures measured on the development machine, where System Settings showed 298.73 GB
         // used against a 494.38 GB volume. Using raw availability instead would report 328.51 GB
-        // — wrong by exactly the purgeable amount. This test pins the correct basis.
+        //. Wrong by exactly the purgeable amount. This test pins the correct basis.
         let o = StorageOverview(totalCapacity: 494_384_795_648,
                                 availableCapacity: 165_879_750_656,
                                 availableForImportantUsage: 195_535_554_837)
@@ -267,13 +267,13 @@ struct StorageOverviewTests {
         let first = try #require(StorageOverview.read())
         let second = try #require(StorageOverview.read())
         #expect(second.measuredAt >= first.measuredAt)
-        // Cheap enough to call on every screen appearance — this is what makes caching unnecessary.
+        // Cheap enough to call on every screen appearance: this is what makes caching unnecessary.
         let start = Date()
         for _ in 0..<100 { _ = StorageOverview.read() }
         let perRead = Date().timeIntervalSince(start) / 100
         // Measured: ~0.002 ms in an optimised build, ~12 ms in this debug test build (debug
         // Foundation bridging dominates). The threshold is set to catch the regression that
-        // actually matters — someone making `read()` walk the filesystem, which would cost
+        // actually matters. Someone making `read()` walk the filesystem, which would cost
         // seconds, not milliseconds.
         #expect(perRead < 0.1, "read() must stay a syscall, not become a filesystem walk")
     }
@@ -293,7 +293,7 @@ struct StorageOverviewTests {
         // Deliberately *not* asserted as `after.freeCapacity <= before.freeCapacity`: macOS
         // reclaims purgeable space concurrently, so free space genuinely can rise while this
         // test writes 300 MB, and that assertion was observed failing on an otherwise-healthy
-        // machine. What the test actually cares about is that the figure moved at all — a
+        // machine. What the test actually cares about is that the figure moved at all: a
         // cached or hard-coded `read()` would return an identical value.
         let moved = after.freeCapacity != before.freeCapacity
             || after.usedCapacity != before.usedCapacity

@@ -148,7 +148,7 @@ struct ScannerTests {
         f.file("Library/Caches/com.example.ghost/blob.bin", bytes: 5_000_000, age: 90 * days)
         let ctx = f.context()
         // Remove it after the listing would have happened but before measurement, by measuring
-        // a path we delete first — the scanner must tolerate the gap.
+        // a path we delete first: the scanner must tolerate the gap.
         try? FileManager.default.removeItem(atPath: f.root + "/Library/Caches/com.example.ghost")
         let result = await CacheScanner().scan(ctx)
         #expect(result.items.isEmpty)

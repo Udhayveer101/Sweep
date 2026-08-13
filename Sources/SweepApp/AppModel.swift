@@ -76,8 +76,8 @@ final class AppModel {
     ///
     /// Called on every event that could have changed them rather than on a timer: a read costs
     /// about 0.002 ms, so polling would be pure waste and caching would only create a way for
-    /// the display to be wrong. Touches nothing but `storage`, so unrelated state — a scan
-    /// report, the user's selection — is never disturbed by a refresh.
+    /// the display to be wrong. Touches nothing but `storage`, so unrelated state: a scan
+    /// report, the user's selection: is never disturbed by a refresh.
     func refreshStorage() {
         if let fresh = StorageOverview.read() {
             storage = fresh
@@ -94,7 +94,7 @@ final class AppModel {
         guard storageObservers.isEmpty else { return }
         let center = NotificationCenter.default
         let workspace = NSWorkspace.shared.notificationCenter
-        // Returning to the app after using Finder, another cleaner, or a big download — or
+        // Returning to the app after using Finder, another cleaner, or a big download: or
         // after granting/revoking Full Disk Access in System Settings, which is why the
         // permission state is re-read here and not only at launch. Without this the banner
         // would outlive the grant that dismisses it until the next relaunch.
@@ -105,7 +105,7 @@ final class AppModel {
                     self?.fullDiskAccess = FullDiskAccess.status()
                 }
             })
-        // Waking from sleep — arbitrary time may have passed.
+        // Waking from sleep: arbitrary time may have passed.
         storageObservers.append(workspace.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.refreshStorage() }

@@ -14,10 +14,10 @@ enum Appearance: String, CaseIterable {
     case light
     /// Dark-appearance app icon.
     case dark
-    /// Solid mark on a light plate — documentation and print.
+    /// Solid mark on a light plate: documentation and print.
     case mono
     /// Black-on-transparent template art, which is what AppKit and the menu bar expect to tint.
-    /// (Drawing it white on transparent — the earlier attempt — is invisible on a light ground.)
+    /// (Drawing it white on transparent, the earlier attempt, is invisible on a light ground.)
     case template
 }
 
@@ -75,7 +75,7 @@ func writePNG(_ image: CGImage, to url: URL) {
 let out = URL(fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : ".")
 try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
 
-// .iconset for iconutil — the standard macOS raster ladder.
+// .iconset for iconutil: the standard macOS raster ladder.
 let iconset = out.appendingPathComponent("Sweep.iconset")
 try? FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 for pt in [16, 32, 128, 256, 512] {

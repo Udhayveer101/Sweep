@@ -109,7 +109,7 @@ public struct CleanupExecutor: Sendable {
         case NSFileWriteNoPermissionError, NSFileReadNoPermissionError, Int(EACCES), Int(EPERM):
             return "Permission denied. Granting Sweep Full Disk Access in System Settings › Privacy & Security usually resolves this."
         case NSFileNoSuchFileError, Int(ENOENT):
-            return "Already gone — something else removed it first."
+            return "Already gone. Something else removed it first."
         case Int(EBUSY):
             return "In use by another process."
         case NSFileWriteOutOfSpaceError:
@@ -124,7 +124,7 @@ public struct CleanupExecutor: Sendable {
 
 /// Restores items from the Trash. Backs the grace period offered after every cleanup, so a
 /// mistaken run is a single click to undo rather than a Finder expedition.
-/// (Vault: Improvement Opportunities #2 — the highest-value, lowest-risk addition identified.)
+/// (Vault: Improvement Opportunities #2. The highest-value, lowest-risk addition identified.)
 public struct Restorer: Sendable {
     public init() {}
 

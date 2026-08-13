@@ -5,7 +5,7 @@ For anyone installing Sweep on a Mac. No developer tools needed.
 ## Before you start
 
 - **macOS 14 (Sonoma) or later.** Apple menu → About This Mac shows your version.
-- Apple Silicon or Intel — both work.
+- Apple Silicon or Intel. Both work.
 
 ## 1. Download
 
@@ -36,7 +36,7 @@ Drag the old copy to the Trash first, then install this one; the warning is gone
 
 The first time Sweep scans, macOS may ask for access to your **Desktop**, **Documents**, and
 **Downloads** folders. Sweep asks for these because it looks there for old installers, old
-screenshots, and large files you have not opened in a long time. Click **Allow** — or don't;
+screenshots, and large files you have not opened in a long time. Click **Allow**, or don't;
 Sweep still works and simply finds less.
 
 ### Full Disk Access is optional
@@ -59,14 +59,14 @@ You can revoke it at any time in the same place.
    unsure about, and anything you created yourself, is listed but never ticked for you.
 4. Click any item to see exactly why Sweep flagged it.
 5. Click **Clean**. Items go to the Trash, not straight to deletion.
-6. If you change your mind, click **Put Back** — it restores everything from that cleanup.
+6. If you change your mind, click **Put Back**, which restores everything from that cleanup.
 
 The only exception is emptying the Trash itself, which is permanent by nature. Sweep says so
 before doing it.
 
 ## Uninstalling Sweep
 
-Drag `/Applications/Sweep.app` to the Trash. That is all — Sweep installs no helper tool, no
+Drag `/Applications/Sweep.app` to the Trash. That is all, because Sweep installs no helper tool, no
 background agent, and no login item.
 
 To also remove its cleanup history:
@@ -82,7 +82,7 @@ Files and Folders and Full Disk Access lists.
 
 **"Sweep is damaged and can't be opened"**
 This should not happen with a release downloaded from the Releases page, since those builds are
-notarized. If it does, the download is likely incomplete or corrupted — delete it and download
+notarized. If it does, the download is likely incomplete or corrupted, so delete it and download
 again. You can confirm the file is intact by comparing its checksum to the one in the release
 notes:
 
@@ -99,7 +99,7 @@ Each unsigned build has a different signature, so macOS treats it as a new app. 
 once the app is signed with a stable Developer ID certificate.
 
 **A cleanup reported skipped items**
-Sweep lists each skipped item with the specific reason — usually the file was in use, changed
+Sweep lists each skipped item with the specific reason. Usually the file was in use, changed
 between the scan and the cleanup, or macOS denied access. Nothing was silently ignored.
 
 **Freed space looks smaller than the estimate**

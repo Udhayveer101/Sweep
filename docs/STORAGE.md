@@ -8,7 +8,7 @@ They cannot be reproduced by summing directories, for reasons that are structura
 
 - **Purgeable space.** Caches, local snapshots and evicted iCloud files count as available-when-
   needed. `volumeAvailableCapacityForImportantUsage` includes them, raw availability does not.
-  Measured on the development machine: 182.24 GB vs 152.01 GB — a **30.25 GB** gap.
+  Measured on the development machine: 182.24 GB vs 152.01 GB, a 30.25 GB gap.
 - **APFS clones.** Copied files share blocks until modified, so per-file sizes over-sum.
 - **Local snapshots.** Occupy real space attributed to no directory.
 - **Sealed system volume.** "macOS" spans a read-only, SIP-protected volume.
@@ -24,7 +24,7 @@ It reports two clearly separated kinds of number and never blends them:
 |---|---|---|
 | System-reported | Volume resource keys | "Figures reported by macOS for this volume" |
 | Measured by Sweep | Its own traversal | Per-category totals, always a subset |
-| Not knowable | — | **No number**, plus the reason |
+| Not knowable | none | No number, plus the reason |
 
 The "What Sweep covers…" sheet maps every macOS category to `covered` / `partly covered` /
 `out of scope` with a plain-language explanation. A test keeps that map complete in both
@@ -46,22 +46,22 @@ is not `lastOpened`.**
 `kMDItemLastUsedDate == nil` means **no evidence**, not "never used". Treating nil as unused would
 be the largest false-positive source in a tool like this, so evidence is confidence-tiered:
 
-- **high** — a recorded open date, or the owner is running.
-- **medium** — app-written data whose write time is a sound proxy; or a user-openable item whose
+- high: a recorded open date, or the owner is running.
+- medium: app-written data whose write time is a sound proxy; or a user-openable item whose
   absent open record is informative because Spotlight *was* reachable.
-- **low** — timestamps only, on content where they establish nothing.
-- **none** — Spotlight unreachable and nothing else to go on.
+- low: timestamps only, on content where they establish nothing.
+- none: Spotlight unreachable and nothing else to go on.
 
 `.safe` requires at least `medium`. Weak evidence can never produce a pre-selected deletion.
 
 ## Freshness
 
-The volume figures are re-read on every event that can change them — the storage panel
+The volume figures are re-read on every event that can change them. The storage panel
 appearing, the app becoming active, waking from sleep, a volume mounting or unmounting, and the
 completion of a cleanup or a restore. There is no timer and no cache.
 
 That is affordable because a read is a syscall, not a traversal: ~0.002 ms optimised. Caching it
-would buy nothing and would introduce the one failure mode worth avoiding here — showing a stale
+would buy nothing and would introduce the one failure mode worth avoiding here, which is showing a stale
 number as though it were current. The panel displays the time the figures were read so the claim
 is checkable.
 

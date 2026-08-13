@@ -5,7 +5,7 @@ import Foundation
 /// macOS provides no API to query TCC status, so the only honest test is to attempt a read
 /// that TCC gates and observe the result. This is a read of a system-owned file, not a write,
 /// and it is why the app degrades cleanly instead of assuming access it may not have.
-/// (Vault: Full Disk Access — hands-on verification confirmed these exact denials.)
+/// (Vault: Full Disk Access. Hands-on verification confirmed these exact denials.)
 public enum FullDiskAccess {
     public enum Status: Sendable, Equatable {
         case granted
@@ -68,7 +68,7 @@ public struct Settings: Codable, Sendable, Equatable {
     ///
     /// Off by default and opt-in: the protection pass costs minutes on a large disk, while the
     /// cleanup scan takes seconds, so bundling it into every scan would make the ordinary case
-    /// slower for a check most runs do not need. Persisted with the rest of Settings — the user
+    /// slower for a check most runs do not need. Persisted with the rest of Settings: the user
     /// should not have to re-choose this at every launch.
     public var protectionEnabled = false
     /// Access key for threat-definition feeds that require one. Optional: without it those

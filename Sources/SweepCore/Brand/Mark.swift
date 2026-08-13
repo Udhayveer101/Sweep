@@ -3,10 +3,10 @@ import Foundation
 
 /// The Sweep mark, as geometry.
 ///
-/// **The mark — "Lift".** A block of occupied space with a rounded notch taken out of one corner,
+/// **The mark. "Lift".** A block of occupied space with a rounded notch taken out of one corner,
 /// and a single element departing from it. The reclaimed space is genuine negative space, so the
 /// silhouette itself carries the idea, and the departing dot supplies intent and motion. It
-/// deliberately avoids the category's clichés — broom, bin, sparkle, shield, gauge.
+/// deliberately avoids the category's clichés: broom, bin, sparkle, shield, gauge.
 ///
 /// This lives in `SweepCore` so the app and the icon generator draw from one definition rather
 /// than from two drifting copies of the same numbers.

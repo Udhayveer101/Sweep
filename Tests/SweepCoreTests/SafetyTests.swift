@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import SweepCore
 
-@Suite("Safety engine — eligibility")
+@Suite("Safety engine: eligibility")
 struct EligibilityTests {
 
     @Test("Refuses anything outside the home folder")
@@ -89,11 +89,11 @@ struct EligibilityTests {
     }
 }
 
-@Suite("Safety engine — classification")
+@Suite("Safety engine: classification")
 struct ClassificationTests {
     let now = Date()
 
-    /// Evidence with only a modification date — the common case for app-written data.
+    /// Evidence with only a modification date: the common case for app-written data.
     func ev(_ offset: TimeInterval, lastUsed: Date? = nil, running: Bool = false,
             metadataUnavailable: Bool = false) -> UsageEvidence {
         UsageEvidence(lastUsed: lastUsed, modified: now.addingTimeInterval(offset),

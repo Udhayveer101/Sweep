@@ -170,7 +170,7 @@ public struct DeveloperJunkScanner: CleanupScanner {
                 for entry in entries {
                     let name = (entry as NSString).lastPathComponent
                     if let item = ctx.makeItem(path: entry, category: category,
-                                               displayName: "\(loc.label) — \(name)",
+                                               displayName: "\(loc.label): \(name)",
                                                attribution: .pathConvention, into: &result.skipped) {
                         result.items.append(item)
                     }
@@ -291,7 +291,7 @@ public struct LeftoverScanner: CleanupScanner {
 
 /// Reads the identifier a sandbox container declares for itself.
 ///
-/// A container directory is not reliably named after its owner — it can be renamed, and the
+/// A container directory is not reliably named after its owner: it can be renamed, and the
 /// owning app can be renamed independently. `containermanagerd` writes the real bundle
 /// identifier into the container, which is why this beats matching on the folder name.
 public enum ContainerMetadata {

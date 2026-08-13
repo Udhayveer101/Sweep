@@ -2,7 +2,7 @@ import Foundation
 
 /// Local-only, append-only record of every cleanup run.
 ///
-/// A history log is itself sensitive — it describes what was on the user's Mac — so it never
+/// A history log is itself sensitive. It describes what was on the user's Mac, so it never
 /// leaves the machine, and the app has no networking code of any kind.
 /// (Vault: Improvement Opportunities #7, plus its stated privacy caveat.)
 public actor HistoryStore {

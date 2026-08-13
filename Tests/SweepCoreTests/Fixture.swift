@@ -2,7 +2,7 @@ import Foundation
 @testable import SweepCore
 
 /// A throwaway directory tree that stands in for a home folder. Every destructive test runs
-/// against one of these — never against the machine's real home.
+/// against one of these: never against the machine's real home.
 final class Fixture {
     let root: String
 

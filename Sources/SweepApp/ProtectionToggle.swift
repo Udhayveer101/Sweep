@@ -5,8 +5,8 @@ import SweepCore
 ///
 /// Deliberately *not* an `NSSwitch` or a `Toggle`: a system switch beside a large capsule CTA
 /// reads as a settings control that wandered onto the home screen. This is built from the same
-/// vocabulary the rest of Sweep already uses — a capsule of the same height as the Scan button,
-/// the same corner geometry, the same restrained palette — so the pair reads as one scanning
+/// vocabulary the rest of Sweep already uses. A capsule of the same height as the Scan button,
+/// the same corner geometry, the same restrained palette: so the pair reads as one scanning
 /// control group with a clear primary and secondary.
 ///
 /// Hierarchy is intentional: Scan stays the filled pink CTA; Protection is a quieter capsule

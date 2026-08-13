@@ -9,7 +9,7 @@ import Foundation
 public enum Confidence: String, Codable, Sendable, Comparable {
     /// Direct evidence from a system that records actual use.
     case high
-    /// Indirect but sound evidence — e.g. a file only its owning app writes to, and it has not
+    /// Indirect but sound evidence. E.g. a file only its owning app writes to, and it has not
     /// been written to in a long time.
     case medium
     /// Weak evidence. Timestamps only, of a kind that does not establish use.
@@ -35,7 +35,7 @@ public struct UsageEvidence: Sendable, Codable, Hashable {
     /// This is the only signal that means "a user opened this". Nil means *no evidence*,
     /// which is not the same as "never opened".
     public var lastUsed: Date?
-    /// `kMDItemUseCount` — how many times LaunchServices has recorded an open.
+    /// `kMDItemUseCount`. How many times LaunchServices has recorded an open.
     public var useCount: Int?
     /// POSIX mtime, or the newest mtime in a directory tree. Means "last written", which for
     /// app-managed data (caches, logs) is a good activity signal and for user documents is not.
@@ -44,7 +44,7 @@ public struct UsageEvidence: Sendable, Codable, Hashable {
     public var created: Date?
     /// POSIX atime. Displayed, never trusted. See the type doc.
     public var accessed: Date?
-    /// `kMDItemDateAdded` — when the item arrived in its folder (e.g. when it was downloaded).
+    /// `kMDItemDateAdded`. When the item arrived in its folder (e.g. when it was downloaded).
     public var added: Date?
     /// The owning application is running right now.
     public var isRunning: Bool
@@ -80,11 +80,11 @@ public struct UsageEvidence: Sendable, Codable, Hashable {
 
     /// How much this evidence supports a claim about whether the item is still in use.
     ///
-    /// - `.high` — the item is running, or LaunchServices has a recorded open date.
-    /// - `.medium` — no use record, but the item is app-managed data whose write time is a
+    /// - `.high`. The item is running, or LaunchServices has a recorded open date.
+    /// - `.medium`. No use record, but the item is app-managed data whose write time is a
     ///   sound activity proxy, and Spotlight was reachable (so the absence is informative).
-    /// - `.low` — write time only, on data a write time does not describe well.
-    /// - `.none` — Spotlight unavailable and nothing else to go on.
+    /// - `.low`. Write time only, on data a write time does not describe well.
+    /// - `.none`. Spotlight unavailable and nothing else to go on.
     public func confidence(for category: SweepCategory) -> Confidence {
         if isRunning || lastUsed != nil { return .high }
         switch category.evidenceModel {
@@ -94,7 +94,7 @@ public struct UsageEvidence: Sendable, Codable, Hashable {
             return .medium
         case .userOpenable:
             // These are things a person opens (a disk image, a trashed file). Spotlight having
-            // no open record is therefore informative — but only if Spotlight was reachable.
+            // no open record is therefore informative: but only if Spotlight was reachable.
             return metadataUnavailable ? .low : .medium
         case .userAuthored:
             // Sweep never pre-selects these, and it will not pretend to know whether a document
@@ -118,12 +118,12 @@ public struct UsageEvidence: Sendable, Codable, Hashable {
         } else if metadataUnavailable {
             out.append(Rationale(
                 rule: "No usage record",
-                detail: "macOS has no opened-date for this path, and Spotlight could not be consulted — so this is unknown, not 'never used'."))
+                detail: "macOS has no opened-date for this path, and Spotlight could not be consulted, so this is unknown, not 'never used'."))
         } else {
             out.append(Rationale(
                 rule: "No usage record",
                 detail: category.writeTimeIsMeaningful
-                    ? "macOS has no opened-date for this — expected, because apps write here without a user ever opening it. Its write time is the meaningful signal."
+                    ? "macOS has no opened-date for this, which is expected because apps write here without a user ever opening it. Its write time is the meaningful signal."
                     : "macOS has no opened-date for this. That means unknown, not 'never used'."))
         }
         out.append(Rationale(
@@ -153,7 +153,7 @@ public enum EvidenceModel: String, Sendable {
     /// Written by an application, never opened by a person. Write time is the activity signal;
     /// an absent open-record is expected and says nothing.
     case appManagedWrites
-    /// Things a person opens directly. An absent open-record is genuine evidence — provided
+    /// Things a person opens directly. An absent open-record is genuine evidence: provided
     /// Spotlight was reachable.
     case userOpenable
     /// Content the user created. No timestamp establishes whether it still matters to them.
@@ -181,7 +181,7 @@ public struct MetadataReader: Sendable {
     /// Collects every usage signal macOS exposes for a path.
     ///
     /// `treeModified` lets a caller pass the newest modification date of a whole directory tree,
-    /// which it has usually already computed during the size walk — re-walking here would double
+    /// which it has usually already computed during the size walk: re-walking here would double
     /// the I/O for no new information.
     public func evidence(for path: String, treeModified: Date? = nil, isRunning: Bool = false) -> UsageEvidence {
         let url = URL(fileURLWithPath: path)

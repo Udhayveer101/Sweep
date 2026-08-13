@@ -29,8 +29,8 @@ immediately before touching it. Each has a test.
 |---|---|
 | Symlink escape (`~/Library/Caches/x → /etc`) | Lexical symlink detection before normalization; refused, tested |
 | Symlink loop | Traversal never follows links at all; loop is impossible |
-| TOCTOU — item changes between scan and delete | Full re-validation: eligibility, existence, symlink status, and modification date |
-| TOCTOU — item replaced by a symlink after scanning | `lstat`-based checks, re-run at delete time |
+| TOCTOU: item changes between scan and delete | Full re-validation: eligibility, existence, symlink status, and modification date |
+| TOCTOU: item replaced by a symlink after scanning | `lstat`-based checks, re-run at delete time |
 | Path traversal via crafted filenames | Paths are normalized and component-checked; never passed to a shell |
 | Malicious deep nesting | Depth cap (24) with the skip recorded |
 | Directory with millions of entries | Entry budget (400k) checked per entry, not per directory |
@@ -40,7 +40,7 @@ immediately before touching it. Each has a test.
 | Concurrent scans racing on the same paths | Actor-enforced single-scan-in-flight lock |
 | Two scanners claiming the same bytes | Structural dedup, including nested paths |
 | A scanner crashing or hanging the whole run | Per-scanner failure isolation; partial results are reported as partial |
-| Privilege escalation | No privileged code exists — no helper, no XPC, no elevation |
+| Privilege escalation | No privileged code exists: no helper, no XPC, no elevation |
 | Data exfiltration | No networking code in the project |
 | History log leaking what was on the Mac | Local only, `0600`, never transmitted |
 
@@ -104,8 +104,8 @@ Least privilege throughout:
   target in exchange for very little reach.
 - The scanner reads machine-wide locations (`/Library` persistence) but writes nothing there;
   SIP-protected paths are refused with an explanation rather than attempted.
-- Networking exists only to fetch threat definitions. Nothing about the user's files — no names,
-  paths, hashes or contents — is ever transmitted.
+- Networking exists only to fetch threat definitions. Nothing about the user's files is ever
+  transmitted: not names, not paths, not hashes, not contents.
 - Full Disk Access is **optional**. Sweep detects its absence by probing (macOS offers no query
   API), explains what is affected, and works anyway.
 - Per-folder TCC prompts carry purpose strings specific to what Sweep does with that folder.

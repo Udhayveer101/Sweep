@@ -52,7 +52,7 @@ public struct InstalledApps: Sendable, Hashable {
     }
 
     /// Reads the standard application directories. Unreadable locations are skipped rather
-    /// than treated as "nothing installed" — a false empty inventory would make every support
+    /// than treated as "nothing installed". A false empty inventory would make every support
     /// folder look orphaned, which is the worst possible failure mode for this scanner.
     public static func scanDisk(home: String = NSHomeDirectory()) -> InstalledApps {
         var ids = Set<String>()

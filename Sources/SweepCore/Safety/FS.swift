@@ -20,7 +20,7 @@ public enum FS {
         return out
     }
 
-    /// Absolute path with `~`, `.` and `..` resolved purely lexically — no filesystem access,
+    /// Absolute path with `~`, `.` and `..` resolved purely lexically: no filesystem access,
     /// and crucially no symlink resolution, so a symlink still appears as its own component.
     /// Used to detect symlinks *before* `normalize` would resolve them away.
     public static func lexical(_ path: String) -> String {

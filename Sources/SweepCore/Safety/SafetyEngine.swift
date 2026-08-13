@@ -25,10 +25,10 @@ public struct SafetyPolicy: Sendable, Hashable, Codable {
     public var installerAgeDays: Int = 30
     public var leftoverAgeDays: Int = 30
     public var trashAgeDays: Int = 30
-    /// Items below this size are still reported but never pre-selected — the risk/reward is poor.
+    /// Items below this size are still reported but never pre-selected: the risk/reward is poor.
     public var minimumAutoSelectBytes: Int64 = 1_000_000
     /// User-extensible protection tier. Anything at or under these paths is refused outright.
-    /// (Vault: Architecture Proposal decision #3 — two-tier ignore list.)
+    /// (Vault: Architecture Proposal decision #3: two-tier ignore list.)
     public var userProtectedPaths: Set<String> = []
 
     public init() {}
@@ -40,7 +40,7 @@ public struct SafetyPolicy: Sendable, Hashable, Codable {
 ///  1. Nothing outside the user's home directory is ever eligible. Sweep performs no
 ///     privileged operations at all, so system locations are out of scope by construction.
 ///  2. A path is only eligible if it is symlink-free, on the home volume, and clear of every
-///     protection rule — re-checked immediately before deletion, not just at scan time.
+///     protection rule. Re-checked immediately before deletion, not just at scan time.
 public struct SafetyEngine: Sendable {
     public let home: String
     public let policy: SafetyPolicy
@@ -87,7 +87,7 @@ public struct SafetyEngine: Sendable {
     // MARK: - Eligibility (the hard gate)
 
     public enum Refusal: String, Sendable, Error {
-        case outsideHome = "Outside your home folder — Sweep only ever touches files you own."
+        case outsideHome = "Outside your home folder. Sweep only ever touches files you own."
         case protectedLocation = "In a protected location."
         case userProtected = "You added this path to Sweep's protected list."
         case containsSymlink = "Path contains a symbolic link."
@@ -102,7 +102,7 @@ public struct SafetyEngine: Sendable {
     /// again immediately before every deletion.
     public func eligibility(of rawPath: String, runningApps: RunningApps = .none) -> Refusal? {
         // Check for symlinks on the *lexical* path first. `FS.normalize` resolves symlinks away,
-        // which would silently turn "a link inside my home" into whatever it points at — and a
+        // which would silently turn "a link inside my home" into whatever it points at: and a
         // link pointing back inside the home folder would then look perfectly ordinary.
         let lexical = FS.lexical(rawPath)
         if lexical != home, FS.isDescendant(lexical, of: home), FS.containsSymlink(lexical, upTo: home) {
@@ -128,7 +128,7 @@ public struct SafetyEngine: Sendable {
         }
 
         // Reject if any component of the path is a symlink. `FS.normalize` resolves symlinks, so a
-        // path that survives normalization unchanged relative to its lexical form has none — but we
+        // path that survives normalization unchanged relative to its lexical form has none: but we
         // check explicitly because the caller may hand us an unnormalized path.
         if FS.containsSymlink(path, upTo: home) { return .containsSymlink }
 
@@ -254,7 +254,7 @@ public struct SafetyEngine: Sendable {
             }
             if bytes < policy.minimumAutoSelectBytes {
                 return verdict(.review, "Small",
-                               "Under \(Format.bytes(policy.minimumAutoSelectBytes)) — not worth pre-selecting.")
+                               "Under \(Format.bytes(policy.minimumAutoSelectBytes)), not worth pre-selecting.")
             }
             return verdict(.safe, "Installer already used",
                            "No record of it being opened, and it has not changed in \(ageDays) days. The installed app is unaffected.")
@@ -269,7 +269,7 @@ public struct SafetyEngine: Sendable {
             }
             if bytes < policy.minimumAutoSelectBytes {
                 return verdict(.review, "Small",
-                               "Under \(Format.bytes(policy.minimumAutoSelectBytes)) — not worth pre-selecting.")
+                               "Under \(Format.bytes(policy.minimumAutoSelectBytes)), not worth pre-selecting.")
             }
             return verdict(.safe, "Regenerable",
                            "\(category.consequence) Nothing has written to it in \(ageDays) days.")
@@ -290,9 +290,9 @@ public struct SafetyEngine: Sendable {
 
     private func attributionDetail(_ a: Attribution) -> String {
         switch a {
-        case .exactBundleID: "Matched to an app by exact bundle identifier — the strongest signal Sweep uses."
+        case .exactBundleID: "Matched to an app by exact bundle identifier, the strongest signal Sweep uses."
         case .pathConvention: "Matched by Apple's documented per-app folder layout."
-        case .nameHeuristic: "Matched by folder name resemblance only — the weakest signal Sweep uses."
+        case .nameHeuristic: "Matched by folder name resemblance only, the weakest signal Sweep uses."
         }
     }
 }

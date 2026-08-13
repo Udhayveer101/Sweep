@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import SweepCore
 
-/// Performance measurements against the real home folder. Read-only — scanners never delete —
+/// Performance measurements against the real home folder. Read-only, because scanners never delete.
 /// but slow and machine-dependent, so they are opt-in:
 ///
 ///     SWEEP_PERF=1 swift test --filter Performance

@@ -71,7 +71,7 @@ public actor ScanOrchestrator {
                           cancelled: cancelled, limitedByPermissions: limited)
     }
 
-    /// Guarantees no path — nor any path nested inside another reported path — is offered twice.
+    /// Guarantees that no path, and no path nested inside another reported path, is offered twice.
     ///
     /// Two scanners claiming the same bytes would inflate the totals and, worse, queue the same
     /// item for deletion twice, so the second attempt would fail with a confusing "already gone".
@@ -117,10 +117,10 @@ public struct RecommendationEngine: Sendable {
     /// tells the user their Trash is empty when macOS is simply refusing Sweep access to it.
     public func summary(for category: CategoryResult) -> String {
         let selected = category.items.filter(\.autoSelected)
-        if category.wasBlocked && category.items.isEmpty { return "Could not be read — needs permission." }
+        if category.wasBlocked && category.items.isEmpty { return "Could not be read. It needs permission." }
         if category.items.isEmpty { return "Nothing found." }
         if selected.isEmpty {
-            return "\(category.items.count) item(s), \(Format.bytes(category.totalBytes)). None selected — review them yourself."
+            return "\(category.items.count) item(s), \(Format.bytes(category.totalBytes)). None selected. Review them yourself."
         }
         return "\(selected.count) of \(category.items.count) item(s) selected, \(Format.bytes(category.selectedBytes)) of \(Format.bytes(category.totalBytes))."
     }

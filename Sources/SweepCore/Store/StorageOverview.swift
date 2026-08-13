@@ -26,9 +26,9 @@ public struct StorageOverview: Sendable {
 
     public let totalCapacity: Int64
     /// Free space as the filesystem reports it, excluding anything purgeable.
-    /// This is *not* the figure System Settings shows as available — see `freeCapacity`.
+    /// This is *not* the figure System Settings shows as available: see `freeCapacity`.
     public let availableCapacity: Int64
-    /// What macOS says is available for important usage — this *includes* purgeable space.
+    /// What macOS says is available for important usage: this *includes* purgeable space.
     public let availableForImportantUsage: Int64
     /// When these figures were read. Displayed so a user can tell current data from stale.
     public let measuredAt: Date
@@ -38,7 +38,7 @@ public struct StorageOverview: Sendable {
     ///
     /// Verified by measurement rather than assumed: on the development machine
     /// `total − availableForImportantUsage` = 298.85 GB against System Settings' 298.73 GB,
-    /// while `total − availableCapacity` = 328.51 GB — an error of exactly the purgeable amount.
+    /// while `total − availableCapacity` = 328.51 GB: an error of exactly the purgeable amount.
     /// Using raw availability here is the specific bug this property exists to prevent.
     public var freeCapacity: Int64 { availableForImportantUsage }
 
@@ -64,7 +64,7 @@ public struct StorageOverview: Sendable {
     /// Reads the volume's current figures. It is a statfs-backed syscall, not a traversal:
     /// measured at ~0.002 ms in an optimised build (~12 ms in a debug build, where Foundation
     /// bridging dominates). Cheap enough to call on every screen appearance, so it needs
-    /// neither a cache nor a loading state — which is precisely why the display cannot go stale.
+    /// neither a cache nor a loading state. Which is precisely why the display cannot go stale.
     public static func read(path: String = NSHomeDirectory(), now: Date = Date()) -> StorageOverview? {
         let url = URL(fileURLWithPath: path)
         let keys: Set<URLResourceKey> = [.volumeTotalCapacityKey, .volumeAvailableCapacityKey,
@@ -164,7 +164,7 @@ public enum StorageCoverage {
             macOSCategory: "System Data",
             level: .partial,
             sweepCategories: [.userCaches, .userLogs],
-            explanation: "A catch-all macOS uses for caches, logs, snapshots, swap and other system-managed files. Sweep addresses only the part inside your own Library — caches and logs it can attribute to an app. Most of System Data is outside its scope and Sweep does not estimate the remainder."),
+            explanation: "A catch-all macOS uses for caches, logs, snapshots, swap and other system-managed files. Sweep addresses only the part inside your own Library: caches and logs it can attribute to an app. Most of System Data is outside its scope and Sweep does not estimate the remainder."),
     ]
 
     /// Sweep categories that no macOS storage row corresponds to cleanly, kept visible so the

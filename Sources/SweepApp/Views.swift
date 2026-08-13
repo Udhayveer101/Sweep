@@ -58,7 +58,7 @@ struct HomeView: View {
                     }
 
                     if let last = model.history.first {
-                        Text("Last cleanup \(last.finished.formatted(.relative(presentation: .named))) — \(Format.bytes(last.verifiedBytesFreed)) freed.")
+                        Text("Last cleanup \(last.finished.formatted(.relative(presentation: .named))), \(Format.bytes(last.verifiedBytesFreed)) freed.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                     }
@@ -168,7 +168,7 @@ struct ScanningView: View {
             if let phase = model.protection.phase {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Protection — \(phase.title)")
+                    Text("Protection: \(phase.title)")
                     if model.protection.examined > 0 {
                         Text("\(model.protection.examined) checked").foregroundStyle(.tertiary)
                     }
@@ -220,7 +220,7 @@ struct ResultsView: View {
                 .frame(maxHeight: .infinity)
             }
             Divider()
-            // Protection is reachable from here whatever it found — a security feature that
+            // Protection is reachable from here whatever it found: a security feature that
             // only appears when something is wrong cannot be checked, only reacted to.
             ProtectionStatusRow()
             Divider()
@@ -244,7 +244,7 @@ struct ResultsView: View {
             ? "These will be deleted permanently and cannot be recovered. You turned this on in Settings."
             : "Everything goes to the Trash, so you can put it back. Sweep also offers a 15-second undo afterwards."
         let trashCategory = model.selectedItems.contains { $0.category == .trash }
-            ? " Items already in the Trash are removed permanently — that is what emptying the Trash means."
+            ? " Items already in the Trash are removed permanently, which is what emptying the Trash means."
             : ""
         return trashPart + trashCategory
     }
@@ -343,9 +343,9 @@ struct CategoryRow: View {
 
     private var selectionHelp: String {
         switch model.selectionState(for: result.category) {
-        case true: "everything selected — click to clear"
-        case false: "nothing selected — click to select all"
-        default: "partly selected — click to clear"
+        case true: "everything selected, click to clear"
+        case false: "nothing selected, click to select all"
+        default: "partly selected, click to clear"
         }
     }
 
@@ -412,7 +412,7 @@ struct SkipSummary: View {
         DisclosureGroup(isExpanded: $expanded) {
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(skipped.prefix(50), id: \.self) { record in
-                    Text("\(describe(record.reason)) — \(record.path)")
+                    Text("\(describe(record.reason)): \(record.path)")
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -548,7 +548,7 @@ struct ResultsFooter: View {
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("\(model.selectedItems.count) item(s) selected — \(Format.bytes(model.selectedBytes))")
+                Text("\(model.selectedItems.count) item(s) selected, \(Format.bytes(model.selectedBytes))")
                     .font(.callout.monospacedDigit())
                 if let report = model.report {
                     Text(footnote(report)).font(.caption).foregroundStyle(.secondary)
@@ -616,7 +616,7 @@ struct DoneView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         header(report)
                         // Shown for as long as the items are still recoverable, not just during
-                        // the countdown — a grace period that expires while the user is reading
+                        // the countdown. A grace period that expires while the user is reading
                         // is a cliff, not a safety net.
                         if report.recoverable || model.undoResult != nil {
                             UndoBanner()
@@ -846,7 +846,7 @@ struct BlockedRootNotice: View {
                 .foregroundStyle(.orange)
             Text("Sweep could not look here").font(.title3)
             Text("macOS blocked access to \(roots.count == 1 ? "this location" : "these locations"). "
-                 + "This is not the same as the location being empty — Sweep does not know what is inside.")
+                 + "This is not the same as the location being empty. Sweep does not know what is inside.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -873,7 +873,7 @@ struct BlockedRootNotice: View {
 ///
 /// Deliberately *not* a coloured badge on the row itself: on a list of ordinary caches, a green
 /// "Strong evidence" chip reads as a security verdict and pulls the eye away from what the row
-/// is actually about. The confidence still drives classification — this only changes how it is
+/// is actually about. The confidence still drives classification: this only changes how it is
 /// presented. (`SafetyEngine` continues to require at least medium confidence for `.safe`.)
 struct ConfidenceRow: View {
     let confidence: Confidence
@@ -881,7 +881,7 @@ struct ConfidenceRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
             Text("Confidence").font(.caption.bold()).frame(width: 110, alignment: .leading)
-            Text("\(strength) — \(explanation)")
+            Text("\(strength): \(explanation)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -915,7 +915,7 @@ private var explanation: String {
 ///
 /// Refreshed every time this view appears, plus on app activation, wake, and volume
 /// mount/unmount (see `AppModel.refreshStorage`). A read costs ~0.002 ms, so the figures are
-/// simply always current — there is no cache to go stale and no loading state to show.
+/// simply always current. There is no cache to go stale and no loading state to show.
 struct StoragePanel: View {
     @Environment(AppModel.self) private var model
 
@@ -937,7 +937,7 @@ struct StoragePanel: View {
                     figure("Free", storage.freeCapacity)
                 }
                 if storage.reclaimableByMacOS > 0 {
-                    Text("Free space includes \(Format.bytes(storage.reclaimableByMacOS)) macOS can reclaim by itself — caches, local snapshots and files already stored in iCloud. Counting it as free is what System Settings does too.")
+                    Text("Free space includes \(Format.bytes(storage.reclaimableByMacOS)) macOS can reclaim by itself: caches, local snapshots and files already stored in iCloud. Counting it as free is what System Settings does too.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

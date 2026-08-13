@@ -63,7 +63,7 @@ struct ThreatBanner: View {
 /// A compact, permanently-visible protection status line on the results screen.
 ///
 /// Without this, a clean protection result is invisible and the quarantine, definitions and
-/// update controls are unreachable — the UI would only surface security when something is
+/// update controls are unreachable. The UI would only surface security when something is
 /// wrong, which is exactly backwards. The research is explicit that last-scan time, definitions
 /// date and scanned scope should be permanently visible, because that is the cheapest trust a
 /// scanner can offer. (Vault: Security Scan UX Principles, rule 3.)
@@ -129,11 +129,11 @@ struct ProtectionStatusRow: View {
 
 // MARK: - Protection summary (clean state)
 
-/// The zero-findings state — roughly 99% of scans, and the screen that has to earn trust.
+/// The zero-findings state. Roughly 99% of scans, and the screen that has to earn trust.
 ///
 /// Deliberately quiet and factual. It reports what was examined, what was not, and how old the
 /// definitions are; it never says "you are protected", because Sweep cannot know that.
-/// (Vault: Security Scan UX Principles, rules 1–3.)
+/// (Vault: Security Scan UX Principles, rules 1-3.)
 struct ProtectionSummary: View {
     @Environment(AppModel.self) private var model
 
@@ -182,7 +182,7 @@ struct ProtectionSummary: View {
         var text = parts.joined(separator: "; ") + "."
         // "Could not look" must never read as "found nothing".
         if !report.coverage.unreadable.isEmpty {
-            text += " \(report.coverage.unreadable.count) location(s) could not be read — those were not checked."
+            text += " \(report.coverage.unreadable.count) location(s) could not be read, so those were not checked."
         }
         if report.cancelled { text += " The scan was stopped early, so this is a partial result." }
         return text
@@ -266,7 +266,7 @@ struct ProtectionDetailView: View {
 
 /// One finding, with its evidence available in a click.
 ///
-/// Every row can answer "why was this flagged?" — the malware analogue of the cleanup side's
+/// Every row can answer "why was this flagged?": the malware analogue of the cleanup side's
 /// per-item rationale, which the app already surfaces.
 struct FindingRow: View {
     @Environment(AppModel.self) private var model
@@ -329,7 +329,7 @@ struct FindingRow: View {
                                 .accessibilityHidden(true)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(signal.detail).font(.caption)
-                                Text(signal.name.map { "\(signal.source) — \($0)" } ?? signal.source)
+                                Text(signal.name.map { "\(signal.source): \($0)" } ?? signal.source)
                                     .font(.caption2)
                                     .foregroundStyle(.tertiary)
                             }
@@ -407,7 +407,7 @@ struct QuarantineRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text("Quarantined \(entry.quarantined.formatted(.relative(presentation: .named)))"
-                     + (entry.detectionName.map { " — \($0)" } ?? ""))
+                     + (entry.detectionName.map { ": \($0)" } ?? ""))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -479,7 +479,7 @@ struct ProtectionFooter: View {
                         .foregroundStyle(.orange)
                 }
                 if !model.protection.restorable.isEmpty {
-                    Text("\(model.protection.restorable.count) quarantined item(s) no longer match anything — you can put them back.")
+                    Text("\(model.protection.restorable.count) quarantined item(s) no longer match anything, so you can put them back.")
                         .font(.caption2)
                         .foregroundStyle(.green)
                 }

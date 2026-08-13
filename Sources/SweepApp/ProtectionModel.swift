@@ -21,7 +21,7 @@ final class ProtectionModel {
     /// Findings the user has selected to quarantine.
     var selection: Set<UUID> = []
     var outcomes: [QuarantineOutcome] = []
-    /// Items that stopped matching after a definitions update — offered back to the user.
+    /// Items that stopped matching after a definitions update: offered back to the user.
     var restorable: [QuarantineEntry] = []
     var updating = false
     var updateProblems: [(feed: String, reason: String)] = []
@@ -47,7 +47,7 @@ final class ProtectionModel {
 
     /// Drops any previous protection result. Used when protection is switched off or a scan
     /// runs without it, so the UI never shows findings from a run that did not just happen.
-    /// Quarantine contents are untouched — those are the user's, not this scan's.
+    /// Quarantine contents are untouched: those are the user's, not this scan's.
     func clearResults() {
         report = nil
         phase = nil
@@ -163,7 +163,7 @@ final class ProtectionModel {
     /// Updates definitions, then re-checks quarantine against them.
     ///
     /// The re-check is the point: an item that no longer matches was a false positive, and it
-    /// can be offered back with no user action. (Vault: False Positive Control — self-healing.)
+    /// can be offered back with no user action. (Vault: False Positive Control: self-healing.)
     func updateDefinitions(authKey: String?) async {
         updating = true
         defer { updating = false }

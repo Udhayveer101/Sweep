@@ -27,7 +27,7 @@ public enum SweepCategory: String, Codable, Sendable, CaseIterable, Hashable {
     }
 
     /// Plain-language statement of what removing items in this category does.
-    /// Deliberately neutral — no urgency, no "your Mac is at risk" framing.
+    /// Deliberately neutral: no urgency, no "your Mac is at risk" framing.
     /// (Vault: Improvement Opportunities #3, MacKeeper cautionary case.)
     public var consequence: String {
         switch self {
@@ -44,7 +44,7 @@ public enum SweepCategory: String, Codable, Sendable, CaseIterable, Hashable {
         case .appLeftovers:
             "Support files whose owning app is no longer installed. Reinstalling the app recreates them."
         case .largeOldFiles:
-            "Your own files. Nothing here is selected for you — review each one."
+            "Your own files. Nothing here is selected for you. Review each one."
         case .screenRecordings:
             "Screenshots and screen recordings you captured. They are not backed up anywhere by Sweep."
         }
@@ -157,7 +157,7 @@ public enum Attribution: String, Codable, Sendable, Comparable {
     case exactBundleID
     /// Path sits under a documented per-app convention (Containers, Application Support/<name>).
     case pathConvention
-    /// Name resemblance only. Lowest confidence — never sufficient for auto-selection on its own.
+    /// Name resemblance only. Lowest confidence. Never sufficient for auto-selection on its own.
     case nameHeuristic
 
     private var order: Int {
@@ -172,7 +172,7 @@ public struct CategoryResult: Sendable, Identifiable {
     public var id: SweepCategory { category }
     public let category: SweepCategory
     public var items: [Item]
-    /// Locations skipped and why — permission denials, vanished paths, unreadable directories.
+    /// Locations skipped and why. Permission denials, vanished paths, unreadable directories.
     public var skipped: [SkipRecord]
     public var failure: ScanFailure?
     /// Top-level locations this category owns that could not be opened at all.
@@ -191,7 +191,7 @@ public struct CategoryResult: Sendable, Identifiable {
         self.unreadableRoots = unreadableRoots
     }
 
-    /// True when Sweep genuinely looked and there was nothing there — as opposed to being
+    /// True when Sweep genuinely looked and there was nothing there: as opposed to being
     /// unable to look.
     public var isTrulyEmpty: Bool { items.isEmpty && unreadableRoots.isEmpty && failure == nil }
     public var wasBlocked: Bool { !unreadableRoots.isEmpty }
@@ -264,7 +264,7 @@ public struct ItemOutcome: Sendable, Codable, Hashable, Identifiable {
     public let bytes: Int64
     public let status: Status
     /// Human-readable reason. Required for `.skipped` and `.failed`.
-    /// (Vault: Improvement Opportunities #5 — report skipped/failed with a specific reason.)
+    /// (Vault: Improvement Opportunities #5. Report skipped/failed with a specific reason.)
     public let reason: String?
     /// Where the item now lives in the Trash, when recoverable.
     public let trashPath: String?
@@ -286,7 +286,7 @@ public struct CleanupReport: Sendable, Codable, Hashable, Identifiable {
     public let started: Date
     public let finished: Date
     public var outcomes: [ItemOutcome]
-    /// Bytes confirmed gone by the verification pass — not the bytes we hoped to free.
+    /// Bytes confirmed gone by the verification pass: not the bytes we hoped to free.
     public var verifiedBytesFreed: Int64
     public let cancelled: Bool
 

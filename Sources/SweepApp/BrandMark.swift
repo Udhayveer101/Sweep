@@ -2,7 +2,7 @@ import SwiftUI
 import SweepCore
 
 /// The Sweep mark as a SwiftUI shape, drawn from the same `SweepMark` geometry that generates
-/// the app icon — so the in-app logo and the Dock icon are the same mark by construction.
+/// the app icon. So the in-app logo and the Dock icon are the same mark by construction.
 struct SweepMarkShape: Shape {
     /// Uses the coarser small-size cut, matching what the icon does below 32 pt.
     var small = false
@@ -41,7 +41,7 @@ struct BrandMark: View {
     }
 }
 
-/// The icon plate — the same superellipse the generated icon uses, so the in-app art matches the
+/// The icon plate. The same superellipse the generated icon uses, so the in-app art matches the
 /// Dock icon's silhouette exactly rather than approximating it with a rounded rectangle.
 struct SweepPlate: Shape {
     func path(in rect: CGRect) -> Path {

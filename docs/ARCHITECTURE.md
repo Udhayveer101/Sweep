@@ -5,17 +5,17 @@
 ```
 Discovery      each scanner knows its own locations
    ↓
-Scan           FS.aggregate — symlink-refusing, depth- and budget-bounded
+Scan           FS.aggregate, symlink-refusing, depth- and budget-bounded
    ↓
 Classify       attribution tiering (bundle ID → path convention → name)
    ↓
-Risk assess    SafetyEngine — the only authority on "may this be deleted"
+Risk assess    SafetyEngine, the only authority on "may this be deleted"
    ↓
-Recommend      RecommendationEngine — pre-selects .safe and nothing else
+Recommend      RecommendationEngine, pre-selects .safe and nothing else
    ↓
 User review    every item inspectable, every verdict explained
    ↓
-Cleanup        CleanupExecutor — re-validates each item immediately before touching it
+Cleanup        CleanupExecutor re-validates each item immediately before touching it
    ↓
 Verify         confirms the path is actually gone before counting the bytes
    ↓
@@ -29,9 +29,9 @@ independently testable against fixture directory trees rather than a real home f
 
 Malware scanning is an optional second scope of the same scan, not a second application. It is
 off by default and enabled by the Protection control beside the Scan button, because the cleanup
-pass costs seconds and the protection pass costs minutes — bundling them would make the common
+pass costs seconds and the protection pass costs minutes. Bundling them would make the common
 case slower for a check most runs do not need. The choice persists in `Settings`. It reuses the
-cleanup side's shape — discover, gather evidence, classify, recommend, act, verify, report —
+cleanup side's shape (discover, gather evidence, classify, recommend, act, verify, report)
 and its safety instincts.
 
 ```
@@ -41,13 +41,13 @@ Trust          Apple-signed / notarized / intact Developer ID / pre-existing ⇒
    ↓
 Evidence       signature · provenance · persistence · hash IOC · certificate · YARA rules
    ↓
-Correlate      ThreatCorrelator — the only type allowed to reach a verdict
+Correlate      ThreatCorrelator, the only type allowed to reach a verdict
    ↓
 Classify       threat class × confidence tier
    ↓
 User review    every finding explains itself; only exact-identity matches are pre-selected
    ↓
-Quarantine     reversible, journalled, verified — nothing is ever deleted
+Quarantine     reversible, journalled, verified. Nothing is ever deleted
    ↓
 Report         per-item outcomes with reasons, plus what was *not* scanned
 ```
@@ -59,7 +59,7 @@ used safely: a rule match on validly-signed, non-revoked code is demoted rather 
 
 | Type | Responsibility |
 |---|---|
-| `SweepCore` | All logic. Foundation only — no AppKit, no SwiftUI, so it is testable headlessly. |
+| `SweepCore` | All logic. Foundation only, with no AppKit and no SwiftUI, so it is testable headlessly. |
 | `SweepApp` | SwiftUI layer. Owns AppKit concerns: running-app snapshots, Finder reveal, panels. |
 | `FS` | Filesystem primitives. Every traversal is bounded and refuses symlinks. |
 | `SafetyEngine` | Eligibility (hard gate) and classification (risk tier + rationale). |
@@ -72,7 +72,7 @@ used safely: a rule match on validly-signed, non-revoked code is demoted rather 
 | `FullDiskAccess` | Probe-based TCC detection (errno-classified, multi-path) with graceful degradation. Re-read on `didBecomeActive`, so returning from System Settings updates the banner without a relaunch. |
 | `MalwareScanner` | Protection-scan orchestration, bounded concurrency, coverage accounting. |
 | `CodeSignatureInspector` | `SecStaticCode` validity, notarization, revocation, cdhash, Team ID. |
-| `TrustBaseline` | Decides what needs no accusing — the main false-positive control. |
+| `TrustBaseline` | Decides what needs no accusing. The main false-positive control. |
 | `ThreatCorrelator` | The only authority on "is this a threat", mirroring `SafetyEngine`. |
 | `PersistenceEnumerator` | launchd, plug-in surfaces, shell init, cron. |
 | `QuarantineStore` | Reversible isolation with a journal and verified restore. |
@@ -94,7 +94,7 @@ corpus cheaply, and only the residue reaches the expensive layers. Measured on o
 
 ### No privileged helper, no elevation
 The scope is user-owned files only. Narrowing the scope removes the need for a privileged
-helper entirely — no `SMAppService` registration, no XPC surface, no admin prompt, and no
+helper entirely: no `SMAppService` registration, no XPC surface, no admin prompt, and no
 installed component that outlives the app. This is the single biggest attack-surface decision
 in the project, and it is a deliberate trade: Sweep cannot clean `/Library` or system caches.
 That is the correct trade for a tool whose main risk is deleting the wrong thing.
