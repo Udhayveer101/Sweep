@@ -48,24 +48,24 @@ install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/Mac
 # SWEEP_SIGN_ID set    -> Developer ID, with Hardened Runtime and a secure timestamp, both of
 #                         which notarization refuses builds without.
 #
-# No entitlements file is passed, deliberately. Sweep needs no Hardened Runtime exceptions: it
-# has no JIT, no unsigned executable memory and no dyld interposing. It does load one
-# third-party library (YARA-X), but that library is bundled and re-signed with this same
-# identity, so library validation accepts it without a disable-library-validation exception —
-# which is why no entitlement is needed even now. Access to the user's files is governed by
-# TCC, which is not an entitlement — the
-# sandbox file entitlements would only matter to a sandboxed app, and Sweep is not one (see
-# docs/DEPLOYMENT.md on why the App Store is not the channel for this product). An entitlements
-# plist here would be a file granting nothing, and a reviewer would have to read it to find
-# that out.
+# One entitlement is required: YARA-X runs rule conditions through wasmtime, which JITs.
+# Without com.apple.security.cs.allow-jit the Hardened Runtime kills the app the moment a
+# scan evaluates a rule (EXC_BAD_ACCESS / CODESIGNING Invalid Page). The bundled YARA-X
+# dylib is re-signed with the same identity, so library validation needs no exception, and
+# file access is governed by TCC, not entitlements — Sweep is not sandboxed (see
+# docs/DEPLOYMENT.md on why the App Store is not the channel for this product).
+ENTITLEMENTS="$(dirname "$0")/Resources/Sweep.entitlements"
 if [ -n "${SWEEP_SIGN_ID:-}" ]; then
     codesign --force --options runtime --timestamp \
+        --entitlements "$ENTITLEMENTS" \
         --sign "$SWEEP_SIGN_ID" "$APP/Contents/Frameworks/libyara_x_capi.1.dylib"
     codesign --force --options runtime --timestamp \
+        --entitlements "$ENTITLEMENTS" \
         --sign "$SWEEP_SIGN_ID" --identifier com.sweep.app "$APP"
     echo "Built $APP (signed: $SWEEP_SIGN_ID)"
 else
     codesign --force --sign - "$APP/Contents/Frameworks/libyara_x_capi.1.dylib" >/dev/null 2>&1
-    codesign --force --sign - --identifier com.sweep.app "$APP" >/dev/null 2>&1
+    codesign --force --entitlements "$ENTITLEMENTS" --sign - \
+        --identifier com.sweep.app "$APP" >/dev/null 2>&1
     echo "Built $APP (ad-hoc — set SWEEP_SIGN_ID for a distributable signature)"
 fi
