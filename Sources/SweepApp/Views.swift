@@ -274,6 +274,8 @@ struct EmptyResultsView: View {
             }
             ProtectionSummary()
                 .frame(maxWidth: 460)
+            BrowserExtensionsSection()
+                .frame(maxWidth: 460)
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

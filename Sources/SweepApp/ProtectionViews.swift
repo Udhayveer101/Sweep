@@ -188,10 +188,82 @@ struct ProtectionSummary: View {
         return text
     }
 
+    /// Says where the definitions came from as well as how old they are.
+    ///
+    /// Sweep's indicator feeds are authenticated by HTTPS and nothing more — nobody signs them —
+    /// so the user is told that, and told what Sweep does about it. A scanner that will not say
+    /// how much its own evidence is worth is asking to be trusted without evidence.
     private func definitionsLine(_ definitions: DefinitionsVersion) -> String {
-        definitions.isStale()
+        var text = definitions.isStale()
             ? "Threat definitions are out of date (\(definitions.summary)). Update them for a fuller check."
             : "Threat definitions: \(definitions.summary)."
+        if definitions.trust == .unverified {
+            text += " Because that source cannot be verified, matches against it are always shown for review and never removed automatically."
+        }
+        return text
+    }
+}
+
+// MARK: - Browser extensions
+
+/// Everything installed in the user's browsers, listed without judgement.
+///
+/// Sweep deliberately reaches no verdict here: there is no trustworthy identity source for browser
+/// extensions the way there is for signed code, so a score would be a guess with a confidence
+/// label on it. What macOS offers nowhere at all is the plain list — every extension that can read
+/// your browsing, and what each one asked permission to do.
+struct BrowserExtensionsSection: View {
+    @Environment(AppModel.self) private var model
+    @State private var expanded = false
+
+    private var extensions: [BrowserExtension] { model.protection.browserExtensions }
+
+    var body: some View {
+        if !extensions.isEmpty {
+            DisclosureGroup(isExpanded: $expanded) {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(extensions) { entry in
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(entry.name).font(.callout)
+                                Text(entry.browser)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                if !entry.hasUpdateURL {
+                                    Text("no update source")
+                                        .font(.caption2)
+                                        .foregroundStyle(.orange)
+                                }
+                            }
+                            if let detail = permissionSummary(entry) {
+                                Text(detail)
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    Text("Sweep does not judge browser extensions. This is a list of what is installed, so you can recognise anything you did not install yourself.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.top, 8)
+            } label: {
+                Text("Browser extensions (\(extensions.count))").font(.headline)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    private func permissionSummary(_ entry: BrowserExtension) -> String? {
+        let all = entry.permissions + entry.hostPermissions
+        guard !all.isEmpty else { return nil }
+        return "Asks for: " + all.prefix(6).joined(separator: ", ")
+            + (all.count > 6 ? ", and \(all.count - 6) more" : "")
     }
 }
 
@@ -465,7 +537,9 @@ struct ProtectionFooter: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 if let definitions = model.protection.definitions {
-                    Text("Definitions: \(definitions.summary)")
+                    Text("Definitions: \(definitions.summary)"
+                         + (definitions.trust == .unverified
+                            ? " — matches are shown for review, never removed automatically" : ""))
                         .font(.caption)
                         .foregroundStyle(definitions.isStale() ? .orange : .secondary)
                 } else {

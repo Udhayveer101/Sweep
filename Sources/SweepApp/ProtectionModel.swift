@@ -28,6 +28,9 @@ final class ProtectionModel {
     var errorMessage: String?
     /// Set when rule sets failed to load, so the UI can say the scan was narrower than intended.
     var ruleSetProblems: [String] = []
+    /// Browser extensions found on this Mac. Inventory only — Sweep reaches no verdict about
+    /// these, it shows the user what is installed and what each one asked for.
+    var browserExtensions: [BrowserExtension] = []
 
     private let scanner = MalwareScanner()
     private let quarantineStore = QuarantineStore()
@@ -43,6 +46,13 @@ final class ProtectionModel {
         xprotect = XProtectStatus.read()
         definitions = DefinitionsStore.load().version
         quarantined = await quarantineStore.entries()
+    }
+
+    /// Reads the browser extension inventory off the main actor: it walks several directories and
+    /// parses JSON, which is not work the UI should wait on.
+    func loadBrowserExtensions() async {
+        let found = await Task.detached { BrowserExtensionInventory().enumerate() }.value
+        browserExtensions = found.extensions
     }
 
     /// Drops any previous protection result. Used when protection is switched off or a scan
@@ -73,10 +83,18 @@ final class ProtectionModel {
         let engine = YaraEngine(ruleSets: sets)
         ruleSetProblems = engine.failedSets.map { "\($0.name): \($0.reason)" }
 
+        // Read Apple's blocked-extension list fresh for each scan rather than reusing whatever
+        // `load()` happened to see: XProtect updates in the background.
+        let blocked = XProtectStatus.read()
+        xprotect = blocked
+
         let context = ProtectionContext(
             definitions: store,
             baseline: baselineStore.load(),
-            yara: engine.isLoaded ? engine : nil)
+            yara: engine.isLoaded ? engine : nil,
+            appleBlockedExtensions: Set(blocked.blockedExtensions))
+
+        await loadBrowserExtensions()
 
         do {
             let result = try await scanner.scan(context: context) { event in
