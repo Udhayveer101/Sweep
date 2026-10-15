@@ -10,10 +10,16 @@ set -euo pipefail
 CONFIG="${1:-release}"
 cd "$(dirname "$0")"
 
-swift build -c "$CONFIG"
+# Universal (arm64 + x86_64) so the same bundle runs on Apple Silicon and Intel Macs. The
+# YARA-X dylib has to be universal too, hence the helper and the pkg-config override.
+./make-yara-universal.sh
+export PKG_CONFIG_PATH="$PWD/build/yara-universal/lib/pkgconfig"
+ARCHS=(--arch arm64 --arch x86_64)
+
+swift build -c "$CONFIG" "${ARCHS[@]}"
 # Regenerate the icon from SweepMark so the shipped asset can never drift from the source.
 swift run -c "$CONFIG" MakeIcon Resources >/dev/null
-BIN="$(swift build -c "$CONFIG" --show-bin-path)/SweepApp"
+BIN="$(swift build -c "$CONFIG" "${ARCHS[@]}" --show-bin-path)/SweepApp"
 APP="build/Sweep.app"
 
 rm -rf "$APP"
@@ -21,14 +27,17 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Sweep"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/Sweep.icns "$APP/Contents/Resources/Sweep.icns"
+# BSD-3-Clause requires the YARA-X copyright notice to accompany the binary, so it ships
+# inside the bundle rather than only in the repo — the DMG is what users actually receive.
+cp THIRD-PARTY-NOTICES.txt "$APP/Contents/Resources/THIRD-PARTY-NOTICES.txt"
 
 # Bundle YARA-X (BSD-3-Clause) so the shipped app does not depend on Homebrew being installed
 # on the machine that runs it. The library is re-pointed at the bundle and re-signed with the
 # app's own identity below, which is what lets it load under the Hardened Runtime's library
 # validation.
-YARA_LIB="$(pkg-config --variable=libdir yara_x_capi 2>/dev/null || echo "$(brew --prefix)/lib")/libyara_x_capi.1.dylib"
+YARA_LIB="$(pkg-config --variable=libdir yara_x_capi)/libyara_x_capi.1.dylib"
 if [ ! -f "$YARA_LIB" ]; then
-    echo "error: libyara_x_capi.1.dylib not found. Install it with: brew install yara-x" >&2
+    echo "error: $YARA_LIB not found. Install it with: brew install yara-x" >&2
     exit 1
 fi
 mkdir -p "$APP/Contents/Frameworks"
