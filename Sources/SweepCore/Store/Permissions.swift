@@ -109,6 +109,10 @@ public struct Settings: Codable, Sendable, Equatable {
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
                                                  withIntermediateDirectories: true)
         try? JSONEncoder.sweep.encode(self).write(to: url, options: [.atomic])
+        // Settings can hold a threat-feed access key, so this file is owner-only like the
+        // history log and the definitions. Written every save because an atomic write replaces
+        // the file, and the replacement is created with the process umask.
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
 
     public static var defaultURL: URL {

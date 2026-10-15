@@ -41,7 +41,7 @@ immediately before touching it. Each has a test.
 | Two scanners claiming the same bytes | Structural dedup, including nested paths |
 | A scanner crashing or hanging the whole run | Per-scanner failure isolation; partial results are reported as partial |
 | Privilege escalation | No privileged code exists: no helper, no XPC, no elevation |
-| Data exfiltration | No networking code in the project |
+| Data exfiltration | The only outbound request is the definition fetch: HTTPS-only, same-host redirects, size-capped, no cookies or credentials. Nothing about the user's files is ever sent |
 | History log leaking what was on the Mac | Local only, `0600`, never transmitted |
 
 ## Deliberately not defended against
